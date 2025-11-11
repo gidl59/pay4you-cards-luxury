@@ -282,6 +282,10 @@ def vcard(slug):
         mimetype="text/vcard",
         download_name=f"{slug}.vcf"
     )
+@app.route("/favicon.ico")
+def favicon():
+    # Se non hai una favicon, evita l’errore restituendo 204 "no content"
+    return ("", 204)
 
 # ------------------------------------------------------------------------------
 # Health
