@@ -1,3 +1,9 @@
-{% extends "base.html" %}{% block title %}Non trovato{% endblock %}{% block content %}
-<h2>Pagina non trovata</h2><a class="btn outline" href="/">Home</a>
+{% extends "base.html" %}
+{% block title %}Pagina non trovata{% endblock %}
+{% block content %}
+<div class="card glass" style="text-align:center; padding:40px;">
+  <h2>Pagina non trovata</h2>
+  <p>Il contenuto richiesto non esiste oppure lo slug è errato.</p>
+  <a class="btn" href="{{ url_for('home') }}">Home</a>
+</div>
 {% endblock %}
