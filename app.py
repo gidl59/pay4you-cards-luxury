@@ -1,413 +1,208 @@
 import os
-import json
 import sqlite3
-from io import BytesIO
-from datetime import datetime
-
 from flask import (
     Flask, render_template, request, redirect, url_for,
-    session, abort, send_file, flash
+    session, send_file, abort
 )
-
 import qrcode
+import vobject
+from io import BytesIO
 
-# ------------------------------------------------------------------------------
-# Config base
-# ------------------------------------------------------------------------------
+# -----------------------------------------------------------
+# CONFIGURAZIONE BASE
+# -----------------------------------------------------------
+
 app = Flask(__name__)
-
-# segreta per la sessione (se non c'è nelle env, ne genera una semplice)
 app.secret_key = os.environ.get("SECRET_KEY", "pay4you-secret")
-
-# Base URL pubblico (quello di Render, senza / finale)
 BASE_URL = os.environ.get("BASE_URL", "http://localhost:10000").rstrip("/")
 
-# Credenziali admin (env)
-ADMIN_USER = os.environ.get("ADMIN_USER", "admin")
-ADMIN_PASS = os.environ.get("ADMIN_PASS", "admin")
+DB_FILE = "data.db"
 
-# Cartella upload locale
-UPLOAD_DIR = os.path.join(app.root_path, "static", "uploads")
-os.makedirs(UPLOAD_DIR, exist_ok=True)
+# -----------------------------------------------------------
+# DATABASE
+# -----------------------------------------------------------
 
-# ------------------------------------------------------------------------------
-# DB helpers (SQLite)
-# ------------------------------------------------------------------------------
 def get_db():
-    if not hasattr(app, "_db"):
-        db_path = os.path.join(app.root_path, "db.sqlite")
-        app._db = sqlite3.connect(db_path, check_same_thread=False)
-        app._db.row_factory = sqlite3.Row
-    return app._db
+    conn = sqlite3.connect(DB_FILE)
+    conn.row_factory = sqlite3.Row
+    return conn
 
 def init_db():
-    db = get_db()
-    db.execute(
-        """
+    conn = get_db()
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS agents (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            slug TEXT UNIQUE NOT NULL,
-            name TEXT NOT NULL,
+            slug TEXT PRIMARY KEY,
+            name TEXT,
             company TEXT,
             role TEXT,
             bio TEXT,
-
             phone_mobile TEXT,
             phone_office TEXT,
-
             emails TEXT,
             websites TEXT,
-
             facebook TEXT,
             instagram TEXT,
             linkedin TEXT,
             tiktok TEXT,
             telegram TEXT,
             whatsapp TEXT,
-
             pec TEXT,
             piva TEXT,
             sdi TEXT,
+            addresses TEXT
+        )
+    """)
+    conn.commit()
 
-            addresses TEXT,
-
-            photo_url TEXT,
-            pdf1_url TEXT,
-            pdf2_url TEXT,
-
-            gallery_json TEXT,
-
-            created_at TEXT,
-            updated_at TEXT
-        );
-        """
-    )
-    db.commit()
-
-@app.before_first_request
-def _ensure_db():
+# ✅ Flask 3.x → niente before_first_request
+with app.app_context():
     init_db()
 
-# ------------------------------------------------------------------------------
-# Utility
-# ------------------------------------------------------------------------------
-def is_admin():
-    return bool(session.get("admin"))
+# -----------------------------------------------------------
+# LOGIN ADMIN
+# -----------------------------------------------------------
 
-def require_admin():
-    if not is_admin():
-        return redirect(url_for("login"))
+ADMIN_USER = os.environ.get("ADMIN_USER", "admin")
+ADMIN_PASS = os.environ.get("ADMIN_PASS", "admin")
 
-def now_iso():
-    return datetime.utcnow().isoformat()
-
-def find_agent_by_slug(slug: str):
-    """Trova agente ignorando maiuscole/minuscole."""
-    s = (slug or "").strip()
-    db = get_db()
-    row = db.execute("SELECT * FROM agents WHERE slug = ?", (s,)).fetchone()
-    if not row:
-        row = db.execute("SELECT * FROM agents WHERE lower(slug) = lower(?)", (s,)).fetchone()
-    return row
-
-def save_upload(fs_storage, subdir=""):
-    """Salva un file di Flask `request.files[...]` e ritorna la URL statica."""
-    if not fs_storage or not fs_storage.filename:
-        return None
-    name = fs_storage.filename.strip().replace(" ", "_")
-    if subdir:
-        target_dir = os.path.join(UPLOAD_DIR, subdir)
-    else:
-        target_dir = UPLOAD_DIR
-    os.makedirs(target_dir, exist_ok=True)
-    # timestamp nel nome per evitare collisioni
-    base, ext = os.path.splitext(name)
-    safe_name = f"{base}_{int(datetime.utcnow().timestamp())}{ext}"
-    abs_path = os.path.join(target_dir, safe_name)
-    fs_storage.save(abs_path)
-    # URL statica
-    rel_path = os.path.relpath(abs_path, os.path.join(app.root_path, "static"))
-    return url_for("static", filename=rel_path).replace("\\", "/")
-
-def make_qr_png(url: str) -> BytesIO:
-    """Genera PNG del QR come BytesIO."""
-    img = qrcode.make(url)
-    buf = BytesIO()
-    img.save(buf, format="PNG")
-    buf.seek(0)
-    return buf
-
-# ------------------------------------------------------------------------------
-# Routes pubbliche
-# ------------------------------------------------------------------------------
-@app.get("/")
-def home():
-    # Semplice redirect alla dashboard se loggato, al login altrimenti
-    if is_admin():
-        return redirect(url_for("admin_home"))
-    return redirect(url_for("login"))
-
-@app.get("/health")
-def health():
-    return "ok", 200
-
-@app.get("/<slug>")
-def public_card(slug):
-    agent = find_agent_by_slug(slug)
-    if not agent:
-        return render_template("404.html"), 404
-    # gallery come lista
-    gallery = []
-    if agent["gallery_json"]:
-        try:
-            gallery = json.loads(agent["gallery_json"])
-        except Exception:
-            gallery = []
-    return render_template("card.html", agent=agent, gallery=gallery, BASE_URL=BASE_URL)
-
-# QR personale (accetta /qr/<slug> e /qr/<slug>.png)
-@app.get("/qr/<slug>")
-@app.get("/qr/<slug>.png")
-def qr_personal(slug):
-    agent = find_agent_by_slug(slug)
-    if not agent:
-        abort(404)
-    url = f"{BASE_URL}/{agent['slug']}"
-    png = make_qr_png(url)
-    # Restituisce sempre PNG
-    return send_file(png, mimetype="image/png", download_name=f"{agent['slug']}.png")
-
-# vCard
-@app.get("/<slug>.vcf")
-def vcard(slug):
-    agent = find_agent_by_slug(slug)
-    if not agent:
-        abort(404)
-
-    name = agent["name"] or ""
-    tel_m = agent["phone_mobile"] or ""
-    tel_o = agent["phone_office"] or ""
-    emails = (agent["emails"] or "").split(",")
-    email1 = (emails[0].strip() if emails and emails[0].strip() else "")
-    org = agent["company"] or ""
-    title = agent["role"] or ""
-    # prendi solo il primo indirizzo (se serve)
-    address = ""
-    if agent["addresses"]:
-        lines = [l.strip() for l in agent["addresses"].splitlines() if l.strip()]
-        address = lines[0] if lines else ""
-
-    vcf = [
-        "BEGIN:VCARD",
-        "VERSION:3.0",
-        f"N:{name};;;;",
-        f"FN:{name}",
-        f"ORG:{org}",
-        f"TITLE:{title}",
-    ]
-    if tel_m:
-        vcf.append(f"TEL;TYPE=CELL:{tel_m}")
-    if tel_o:
-        vcf.append(f"TEL;TYPE=WORK:{tel_o}")
-    if email1:
-        vcf.append(f"EMAIL;TYPE=INTERNET:{email1}")
-    if address:
-        vcf.append(f"ADR;TYPE=WORK:;;{address};;;;")
-    vcf.extend(["END:VCARD", ""])
-
-    data = "\r\n".join(vcf).encode("utf-8")
-    return send_file(
-        BytesIO(data),
-        mimetype="text/vcard",
-        as_attachment=True,
-        download_name=f"{agent['slug']}.vcf"
-    )
-
-# ------------------------------------------------------------------------------
-# Auth admin
-# ------------------------------------------------------------------------------
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        u = request.form.get("username", "")
-        p = request.form.get("password", "")
-        if u == ADMIN_USER and p == ADMIN_PASS:
+        if request.form["user"] == ADMIN_USER and request.form["pwd"] == ADMIN_PASS:
             session["admin"] = True
             return redirect(url_for("admin_home"))
-        flash("Credenziali non valide", "error")
     return render_template("login.html")
 
-@app.get("/logout")
+@app.route("/logout")
 def logout():
-    session.pop("admin", None)
+    session.clear()
     return redirect(url_for("login"))
 
-# ------------------------------------------------------------------------------
-# Admin CRUD
-# ------------------------------------------------------------------------------
-@app.get("/admin")
+# -----------------------------------------------------------
+# ADMIN PANEL
+# -----------------------------------------------------------
+
+@app.route("/admin")
 def admin_home():
-    if not is_admin():
-        return require_admin()
-    db = get_db()
-    rows = db.execute("SELECT * FROM agents ORDER BY name COLLATE NOCASE").fetchall()
-    return render_template("admin_list.html", agents=rows)
+    if not session.get("admin"):
+        return redirect(url_for("login"))
+    conn = get_db()
+    agents = conn.execute("SELECT * FROM agents").fetchall()
+    return render_template("admin_list.html", agents=agents)
 
 @app.route("/admin/new", methods=["GET", "POST"])
 def admin_new():
-    if not is_admin():
-        return require_admin()
+    if not session.get("admin"):
+        return redirect(url_for("login"))
     if request.method == "POST":
-        return _save_agent()
+        save_agent(request.form)
+        return redirect(url_for("admin_home"))
     return render_template("agent_form.html", agent=None)
 
-@app.route("/admin/<slug>/edit", methods=["GET", "POST"])
+@app.route("/admin/edit/<slug>", methods=["GET", "POST"])
 def admin_edit(slug):
-    if not is_admin():
-        return require_admin()
-    agent = find_agent_by_slug(slug)
+    if not session.get("admin"):
+        return redirect(url_for("login"))
+    conn = get_db()
+    agent = conn.execute("SELECT * FROM agents WHERE slug=?", (slug,)).fetchone()
     if not agent:
-        return render_template("404.html"), 404
+        abort(404)
     if request.method == "POST":
-        return _save_agent(existing=agent)
+        save_agent(request.form, slug)
+        return redirect(url_for("admin_home"))
     return render_template("agent_form.html", agent=agent)
 
-@app.post("/admin/<slug>/delete")
+@app.route("/admin/delete/<slug>", methods=["POST"])
 def admin_delete(slug):
-    if not is_admin():
-        return require_admin()
-    db = get_db()
-    db.execute("DELETE FROM agents WHERE slug = ?", (slug,))
-    db.commit()
+    if not session.get("admin"):
+        return redirect(url_for("login"))
+    conn = get_db()
+    conn.execute("DELETE FROM agents WHERE slug=?", (slug,))
+    conn.commit()
     return redirect(url_for("admin_home"))
 
-def _save_agent(existing=None):
-    """Crea/aggiorna un agente dai dati del form + upload media."""
-    db = get_db()
-
-    slug = (request.form.get("slug") or "").strip().replace(" ", "-")
-    # se vuoi forzare minuscolo:
-    # slug = slug.lower()
-
-    name = (request.form.get("name") or "").strip()
-    company = (request.form.get("company") or "").strip()
-    role = (request.form.get("role") or "").strip()
-    bio = (request.form.get("bio") or "").strip()
-
-    phone_mobile = (request.form.get("phone_mobile") or "").strip()
-    phone_office = (request.form.get("phone_office") or "").strip()
-
-    emails = (request.form.get("emails") or "").strip()
-    websites = (request.form.get("websites") or "").strip()
-
-    facebook = (request.form.get("facebook") or "").strip()
-    instagram = (request.form.get("instagram") or "").strip()
-    linkedin = (request.form.get("linkedin") or "").strip()
-    tiktok = (request.form.get("tiktok") or "").strip()
-    telegram = (request.form.get("telegram") or "").strip()
-    whatsapp = (request.form.get("whatsapp") or "").strip()
-
-    pec = (request.form.get("pec") or "").strip()
-    piva = (request.form.get("piva") or "").strip()
-    sdi = (request.form.get("sdi") or "").strip()
-
-    addresses = (request.form.get("addresses") or "").strip()
-
-    # Upload media (opzionali)
-    photo_url = save_upload(request.files.get("photo"), "photos") or (existing["photo_url"] if existing else None)
-    pdf1_url = save_upload(request.files.get("pdf1"), "pdf") or (existing["pdf1_url"] if existing else None)
-    pdf2_url = save_upload(request.files.get("pdf2"), "pdf") or (existing["pdf2_url"] if existing else None)
-
-    # Galleria multipla
-    gallery_urls = []
-    if existing and existing["gallery_json"]:
-        try:
-            gallery_urls = json.loads(existing["gallery_json"]) or []
-        except Exception:
-            gallery_urls = []
-
-    if "gallery" in request.files:
-        for fs in request.files.getlist("gallery"):
-            u = save_upload(fs, "gallery")
-            if u:
-                gallery_urls.append(u)
-
-    if existing:
-        db.execute(
-            """
+def save_agent(f, old_slug=None):
+    conn = get_db()
+    slug = f["slug"].strip()
+    data = (
+        slug, f["name"], f["company"], f["role"], f["bio"],
+        f["phone_mobile"], f["phone_office"], f["emails"], f["websites"],
+        f["facebook"], f["instagram"], f["linkedin"], f["tiktok"],
+        f["telegram"], f["whatsapp"], f["pec"], f["piva"], f["sdi"],
+        f["addresses"]
+    )
+    if old_slug:
+        conn.execute("""
             UPDATE agents SET
-                slug=?, name=?, company=?, role=?, bio=?,
-                phone_mobile=?, phone_office=?,
-                emails=?, websites=?,
-                facebook=?, instagram=?, linkedin=?, tiktok=?, telegram=?, whatsapp=?,
-                pec=?, piva=?, sdi=?,
-                addresses=?,
-                photo_url=?, pdf1_url=?, pdf2_url=?,
-                gallery_json=?,
-                updated_at=?
-            WHERE id=?
-            """,
-            (
-                slug, name, company, role, bio,
-                phone_mobile, phone_office,
-                emails, websites,
-                facebook, instagram, linkedin, tiktok, telegram, whatsapp,
-                pec, piva, sdi,
-                addresses,
-                photo_url, pdf1_url, pdf2_url,
-                json.dumps(gallery_urls),
-                now_iso(),
-                existing["id"],
-            ),
-        )
+            slug=?, name=?, company=?, role=?, bio=?, phone_mobile=?, phone_office=?,
+            emails=?, websites=?, facebook=?, instagram=?, linkedin=?, tiktok=?, telegram=?,
+            whatsapp=?, pec=?, piva=?, sdi=?, addresses=? WHERE slug=?
+        """, data + (old_slug,))
     else:
-        db.execute(
-            """
-            INSERT INTO agents (
-                slug, name, company, role, bio,
-                phone_mobile, phone_office,
-                emails, websites,
-                facebook, instagram, linkedin, tiktok, telegram, whatsapp,
-                pec, piva, sdi,
-                addresses,
-                photo_url, pdf1_url, pdf2_url,
-                gallery_json,
-                created_at, updated_at
-            ) VALUES (?,?,?,?,?,
-                      ?,?,
-                      ?,?,
-                      ?,?,?,?, ?,?,
-                      ?,?,?,
-                      ?,
-                      ?,?,?,
-                      ?,?,?)
-            """,
-            (
-                slug, name, company, role, bio,
-                phone_mobile, phone_office,
-                emails, websites,
-                facebook, instagram, linkedin, tiktok, telegram, whatsapp,
-                pec, piva, sdi,
-                addresses,
-                photo_url, pdf1_url, pdf2_url,
-                json.dumps(gallery_urls),
-                now_iso(), now_iso(),
-            ),
-        )
+        conn.execute("""
+            INSERT INTO agents VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        """, data)
+    conn.commit()
 
-    db.commit()
-    return redirect(url_for("admin_home"))
+# -----------------------------------------------------------
+# CARD PUBBLICA
+# -----------------------------------------------------------
 
-# ------------------------------------------------------------------------------
-# Errori
-# ------------------------------------------------------------------------------
-@app.errorhandler(404)
-def _404(e):
-    return render_template("404.html"), 404
+@app.route("/<slug>")
+def public_card(slug):
+    conn = get_db()
+    a = conn.execute("SELECT * FROM agents WHERE slug=?", (slug,)).fetchone()
+    if not a:
+        return render_template("404.html"), 404
+    return render_template("card.html", a=a, link=f"{BASE_URL}/{slug}")
 
-# ------------------------------------------------------------------------------
-# Entrypoint
-# ------------------------------------------------------------------------------
+# -----------------------------------------------------------
+# QR CODE
+# -----------------------------------------------------------
+
+@app.route("/qr/<slug>.png")
+def qr_png(slug):
+    url = f"{BASE_URL}/{slug}"
+    img = qrcode.make(url)
+    buf = BytesIO()
+    img.save(buf, "PNG")
+    buf.seek(0)
+    return send_file(buf, mimetype="image/png")
+
+@app.route("/qr/<slug>")
+def qr_page(slug):
+    return render_template("qr.html", url=f"{BASE_URL}/{slug}")
+
+# -----------------------------------------------------------
+# VCARD
+# -----------------------------------------------------------
+
+@app.route("/vcard/<slug>.vcf")
+def vcard(slug):
+    conn = get_db()
+    a = conn.execute("SELECT * FROM agents WHERE slug=?", (slug,)).fetchone()
+    if not a:
+        abort(404)
+    card = vobject.vCard()
+    card.add('fn').value = a["name"]
+    card.add('tel').value = a["phone_mobile"]
+    if a["emails"]:
+        for e in a["emails"].split(","):
+            email = card.add('email')
+            email.value = e.strip()
+    out = card.serialize()
+    return send_file(BytesIO(out.encode()), mimetype="text/vcard", download_name=f"{slug}.vcf")
+
+# -----------------------------------------------------------
+# HEALTH CHECK
+# -----------------------------------------------------------
+
+@app.route("/health")
+def health():
+    return "OK"
+
+# -----------------------------------------------------------
+
 if __name__ == "__main__":
-    # Avvio dev
-    app.run(host="0.0.0.0", port=10000, debug=True)
+    app.run(host="0.0.0.0", port=10000)
+
