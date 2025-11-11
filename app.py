@@ -225,14 +225,16 @@ def home():
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
+   @app.route("/login", methods=["GET", "POST"])
+def login():
     if request.method == "POST":
-        u = request.form.get("username", "")
         p = request.form.get("password", "")
-        if u == ADMIN_USER and p == ADMIN_PASS:
+        if p == ADMIN_PASS:
             session["admin"] = True
             return redirect(url_for("admin_home"))
-        flash("Credenziali non valide", "error")
+        flash("Password non valida", "error")
     return render_template("login.html")
+
 
 @app.route("/logout")
 def logout():
