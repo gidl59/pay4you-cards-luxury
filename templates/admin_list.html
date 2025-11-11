@@ -14,7 +14,7 @@
       <form method="post" action="{{ url_for('admin_delete', slug=a.slug) }}" style="display:inline" onsubmit="return confirm('Eliminare {{ a.name }}?')">
         <button type="submit" class="btn danger">Elimina</button>
       </form>
-      <a class="btn" href="{{ url_for('qr_png', slug=a.slug) }}" target="_blank">QR</a>
+      <a class="btn" href="{{ url_for('qr_personal', slug=a.slug) }}" target="_blank">QR</a>
       <a class="btn" href="{{ url_for('vcard', slug=a.slug) }}" target="_blank">vCard</a>
     </td>
   </tr>
