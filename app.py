@@ -297,3 +297,13 @@ def health():
 # ------------------------------------------------------------------------------
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
+    @app.route("/")
+def home():
+    if session.get("admin"):
+        return redirect(url_for("admin_home"))
+    return redirect(url_for("login"))
+
+@app.route("/favicon.ico")
+def favicon():
+    return ("", 204)  # evita errori se non hai una favicon
+
