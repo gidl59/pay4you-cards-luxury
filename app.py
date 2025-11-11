@@ -67,6 +67,13 @@ with app.app_context():
 # ------------------------------------------------------------------------------
 # Login / Logout
 # ------------------------------------------------------------------------------
+@app.route("/")
+def home():
+    # se sei già loggato vai in admin, altrimenti login
+    if session.get("admin"):
+        return redirect(url_for("admin_home"))
+    return redirect(url_for("login"))
+
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
