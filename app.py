@@ -1,296 +1,274 @@
-# app.py  — v2 con upload locali e card robusta
-from __future__ import annotations
-import os, json, re
-from pathlib import Path
-from io import BytesIO
-from datetime import datetime
+import os, io, json, datetime
+from flask import Flask, render_template, request, redirect, url_for, session, send_file, abort
 from werkzeug.utils import secure_filename
-
-from flask import (
-    Flask, render_template, request, redirect, url_for,
-    session, send_file, send_from_directory, abort, request as flask_request
-)
-
 import qrcode
 
+# ========= Config =========
+APP_SECRET = os.getenv("APP_SECRET") or "dev-secret"
+ADMIN_USER = os.getenv("ADMIN_USER", "admin")
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "test")
+BASE_URL = os.getenv("BASE_URL", "http://localhost:10000").rstrip("/")
 
-# ---------------------- Config ----------------------
+# Opzionale Firebase (se non configurato, salva localmente in /static/uploads)
+FIREBASE_BUCKET = os.getenv("FIREBASE_BUCKET", "").strip()
+FIREBASE_PROJECT_ID = os.getenv("FIREBASE_PROJECT_ID", "").strip()
+FIREBASE_CREDENTIALS_JSON = os.getenv("FIREBASE_CREDENTIALS_JSON", "").strip()
+
 app = Flask(__name__)
+app.secret_key = APP_SECRET
+os.makedirs("static/uploads", exist_ok=True)
+DATA_PATH = "data"
+os.makedirs(DATA_PATH, exist_ok=True)
+AGENTS_JSON = os.path.join(DATA_PATH, "agents.json")
 
-secret_path = Path("/etc/secrets/SECRET_KEY")
-if secret_path.exists():
-    app.secret_key = secret_path.read_text().strip()
-else:
-    app.secret_key = os.getenv("APP_SECRET", "dev-secret-change-me")
-
-ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "").strip()
-if not ADMIN_PASSWORD:
-    raise RuntimeError("Missing ENV ADMIN_PASSWORD")
-
-BASE_URL = os.getenv("BASE_URL", "").rstrip("/")
-
-# storage “DB”
-DATA_DIR = Path("data"); DATA_DIR.mkdir(parents=True, exist_ok=True)
-DB_FILE = DATA_DIR / "db.json"
-
-# upload dir (servita via /media/…)
-UPLOAD_DIR = DATA_DIR / "uploads"; UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-ALLOWED_IMG = {"png","jpg","jpeg","webp","gif"}
-ALLOWED_PDF = {"pdf"}
-
-def _load_db():
-    if DB_FILE.exists():
+# ========= Helpers =========
+def load_agents():
+    if not os.path.exists(AGENTS_JSON):
+        return []
+    with open(AGENTS_JSON, "r", encoding="utf-8") as f:
         try:
-            return json.loads(DB_FILE.read_text(encoding="utf-8"))
-        except Exception:
-            pass
-    return {}
+            return json.load(f)
+        except:
+            return []
 
-def _save_db(db: dict):
-    tmp = DB_FILE.with_suffix(".tmp")
-    tmp.write_text(json.dumps(db, ensure_ascii=False, indent=2), encoding="utf-8")
-    tmp.replace(DB_FILE)
+def save_agents(items):
+    with open(AGENTS_JSON, "w", encoding="utf-8") as f:
+        json.dump(items, f, ensure_ascii=False, indent=2)
 
-DB = _load_db()
+def get_agent(slug):
+    for a in load_agents():
+        if a.get("slug") == slug:
+            return a
+    return None
 
-def is_admin(): return bool(session.get("admin"))
-def normalize_slug(s:str)->str: return (s or "").strip().lower()
+def put_agent(agent):
+    items = load_agents()
+    # replace or insert
+    found = False
+    for i, a in enumerate(items):
+        if a.get("slug") == agent.get("slug"):
+            items[i] = agent
+            found = True
+            break
+    if not found:
+        items.append(agent)
+    save_agents(items)
 
-# filtro per link
+def remove_agent(slug):
+    items = [a for a in load_agents() if a.get("slug") != slug]
+    save_agents(items)
+
 @app.template_filter("ensure_http")
-def ensure_http(u: str | None):
-    if not u: return ""
-    u = u.strip()
-    if u.startswith(("http://","https://")): return u
+def ensure_http(url):
+    if not url: return ""
+    u = url.strip()
+    if u.startswith("http://") or u.startswith("https://"):
+        return u
     return "https://" + u
 
-def _safe_ext(filename:str)->str:
-    fn = secure_filename(filename)
-    m = re.search(r"\.([A-Za-z0-9]+)$", fn)
-    return (m.group(1).lower() if m else "")
+def _filename_with_ts(filename):
+    base = secure_filename(filename)
+    ts = datetime.datetime.utcnow().strftime("%Y%m%d%H%M%S%f")
+    if "." in base:
+        name, ext = base.rsplit(".", 1)
+        return f"{name}-{ts}.{ext}"
+    return f"{base}-{ts}"
 
-def _save_upload(file_storage, subdir:str, allowed:set[str]) -> str | None:
-    if not file_storage or not getattr(file_storage,"filename",None):
-        return None
-    ext = _safe_ext(file_storage.filename)
-    if ext not in allowed:
-        return None
-    folder = UPLOAD_DIR / subdir
-    folder.mkdir(parents=True, exist_ok=True)
-    stamp = datetime.utcnow().strftime("%Y%m%d%H%M%S%f")
-    filename = secure_filename(f"{stamp}.{ext}")
-    file_path = folder / filename
-    file_storage.save(file_path)
-    # URL pubblico locale
-    return f"/media/{subdir}/{filename}"
+# --- Storage: Firebase (se settato) oppure locale ---
+_storage_client = None
+def upload_file(file_storage, folder="misc"):
+    global _storage_client
+    fname = _filename_with_ts(file_storage.filename)
+    if FIREBASE_BUCKET and FIREBASE_PROJECT_ID and FIREBASE_CREDENTIALS_JSON:
+        # Firebase/Google Cloud Storage
+        try:
+            from google.cloud import storage
+            import json as _json
+            if _storage_client is None:
+                creds = _json.loads(FIREBASE_CREDENTIALS_JSON)
+                _storage_client = storage.Client.from_service_account_info(creds, project=FIREBASE_PROJECT_ID)
+            bucket = _storage_client.bucket(FIREBASE_BUCKET)
+            blob = bucket.blob(f"{folder}/{fname}")
+            blob.upload_from_file(file_storage.stream, content_type=file_storage.mimetype)
+            blob.make_public()
+            return blob.public_url
+        except Exception as e:
+            print("Firebase upload error:", e)
+            # fallback locale
+    # Local
+    path = os.path.join("static/uploads", folder)
+    os.makedirs(path, exist_ok=True)
+    full = os.path.join(path, fname)
+    file_storage.save(full)
+    return url_for("static", filename=f"uploads/{folder}/{fname}", _external=True)
 
-
-# ---------------------- Health ----------------------
-@app.get("/health")
+# ========= Routes =========
+@app.route("/health")
 def health():
-    return {"ok": True, "ts": datetime.utcnow().isoformat()}
+    return {"ok": True}
 
-
-# ---------------------- Auth ------------------------
-@app.get("/login")
+@app.route("/login", methods=["GET","POST"])
 def login():
-    if is_admin(): return redirect(url_for("admin_home"))
+    if request.method == "POST":
+        pwd = (request.form.get("password") or "").strip()
+        if pwd == ADMIN_PASSWORD:
+            session["admin"] = True
+            return redirect(url_for("admin_home"))
+        return render_template("login.html", error="Password errata")
     return render_template("login.html")
 
-@app.post("/login")
-def do_login():
-    if request.form.get("password","") == ADMIN_PASSWORD:
-        session["admin"] = True
-        return redirect(url_for("admin_home"))
-    return render_template("login.html", error="Password non corretta"), 401
-
-@app.get("/logout")
+@app.route("/logout")
 def logout():
     session.clear()
     return redirect(url_for("login"))
 
+# ----- ADMIN -----
+def require_admin():
+    if not session.get("admin"):
+        abort(403)
 
-# ---------------------- Admin -----------------------
-@app.get("/")
-def root_redirect():
+@app.route("/admin")
+def admin_home():
+    require_admin()
+    return render_template("admin_list.html", agents=load_agents())
+
+@app.route("/admin/new", methods=["GET","POST"])
+def admin_new():
+    require_admin()
+    if request.method == "POST":
+        return _save_agent(is_new=True)
+    return render_template("agent_form.html", agent=None)
+
+@app.route("/admin/<slug>/edit", methods=["GET","POST"])
+def admin_edit(slug):
+    require_admin()
+    agent = get_agent(slug)
+    if not agent: abort(404)
+    if request.method == "POST":
+        return _save_agent(is_new=False, current=agent)
+    return render_template("agent_form.html", agent=agent)
+
+@app.route("/admin/<slug>/delete", methods=["POST"])
+def admin_delete(slug):
+    require_admin()
+    remove_agent(slug)
     return redirect(url_for("admin_home"))
 
-@app.get("/admin")
-def admin_home():
-    if not is_admin(): return redirect(url_for("login"))
-    agents = sorted(DB.values(), key=lambda a: (a.get("name") or "").lower())
-    return render_template("admin_list.html", agents=agents)
-
-@app.get("/admin/new")
-def admin_new():
-    if not is_admin(): return redirect(url_for("login"))
-    return render_template("agent_form.html", agent=None, error=None)
-
-@app.post("/admin/new")
-def admin_new_post():
-    if not is_admin(): return redirect(url_for("login"))
-
+def _save_agent(is_new, current=None):
     # campi testuali
     fields = [
         "slug","name","company","role","bio",
-        "phone_mobile","phone_office","emails","websites",
-        "facebook","instagram","linkedin","tiktok",
-        "telegram","whatsapp","pec","piva","sdi","addresses",
-        "photo_url","gallery_urls","pdf1_url","pdf2_url","pdf3_url","pdf4_url",
+        "phone_mobile","phone_office","phones_extra",
+        "emails","websites",
+        "facebook","instagram","linkedin","tiktok","telegram","whatsapp",
+        "photo_y","photo_zoom"
     ]
-    agent = {f: request.form.get(f,"").strip() for f in fields}
-    agent["slug"] = normalize_slug(agent["slug"])
-    if not agent["slug"]:
-        return render_template("agent_form.html", agent=agent, error="Slug obbligatorio"), 400
-    if agent["slug"] in DB:
-        return render_template("agent_form.html", agent=agent, error="Slug già esistente"), 400
+    data = current.copy() if (current and not is_new) else {}
+    for f in fields:
+        data[f] = (request.form.get(f) or "").strip()
 
-    # upload singoli (foto & pdf)
-    photo_file = request.files.get("photo_file")
-    if photo_file:
-        saved = _save_upload(photo_file, "photos", ALLOWED_IMG)
-        if saved: agent["photo_url"] = saved
+    # normalizza slug
+    data["slug"] = data["slug"].strip().lower()
 
+    # foto profilo (file) oppure URL incollato
+    photo_file = request.files.get("photo")
+    if photo_file and photo_file.filename:
+        data["photo_url"] = upload_file(photo_file, "photo")
+    else:
+        # se l'utente ha inserito un URL manuale
+        manual_photo = (request.form.get("photo_url") or "").strip()
+        if manual_photo:
+            data["photo_url"] = manual_photo
+
+    # PDF (fino a 4) - file o URL
+    pdf_urls = []
     for i in range(1,5):
-        pf = request.files.get(f"pdf{i}_file")
-        if pf:
-            saved = _save_upload(pf, "pdf", ALLOWED_PDF)
-            if saved: agent[f"pdf{i}_url"] = saved
+        f = request.files.get(f"pdf{i}")
+        if f and f.filename:
+            pdf_urls.append(upload_file(f, "pdf"))
+        else:
+            u = (request.form.get(f"pdf{i}_url") or "").strip()
+            if u: pdf_urls.append(u)
+    data["pdf_urls"] = ",".join(pdf_urls)
 
-    # upload multipli galleria
-    gallery_files = request.files.getlist("gallery_files")
-    gallery_saved = []
-    for gf in gallery_files:
-        s = _save_upload(gf, "gallery", ALLOWED_IMG)
-        if s: gallery_saved.append(s)
+    # Galleria multipla - file o URL (separa con virgola)
+    gallery_urls = []
+    for g in request.files.getlist("gallery"):
+        if g and g.filename:
+            gallery_urls.append(upload_file(g, "gallery"))
+    extra_gal = (request.form.get("gallery_urls") or "").strip()
+    if extra_gal:
+        gallery_urls.extend([x.strip() for x in extra_gal.split(",") if x.strip()])
+    data["gallery_urls"] = ",".join(gallery_urls)
 
-    # merge con eventuali URL incollati
-    urls_from_text = [u.strip() for u in (agent.get("gallery_urls") or "").split(",") if u.strip()]
-    agent["gallery_urls"] = ",".join(urls_from_text + gallery_saved)
-
-    DB[agent["slug"]] = agent
-    _save_db(DB)
+    put_agent(data)
     return redirect(url_for("admin_home"))
 
-@app.get("/admin/<slug>/edit")
-def admin_edit(slug):
-    if not is_admin(): return redirect(url_for("login"))
-    slug = normalize_slug(slug)
-    agent = DB.get(slug)
-    if not agent: return render_template("404.html"), 404
-    return render_template("agent_form.html", agent=agent, error=None)
+# ----- PUBLIC CARD -----
+@app.route("/")
+def root():
+    # redirect semplice alla login oppure ad admin se già autenticato
+    if session.get("admin"):
+        return redirect(url_for("admin_home"))
+    return redirect(url_for("login"))
 
-@app.post("/admin/<slug>/edit")
-def admin_edit_post(slug):
-    if not is_admin(): return redirect(url_for("login"))
-    old_slug = normalize_slug(slug)
-    agent = DB.get(old_slug)
-    if not agent: return render_template("404.html"), 404
-
-    fields = [
-        "slug","name","company","role","bio",
-        "phone_mobile","phone_office","emails","websites",
-        "facebook","instagram","linkedin","tiktok",
-        "telegram","whatsapp","pec","piva","sdi","addresses",
-        "photo_url","gallery_urls","pdf1_url","pdf2_url","pdf3_url","pdf4_url",
-    ]
-    new_data = {f: request.form.get(f,"").strip() for f in fields}
-    new_slug = normalize_slug(new_data.get("slug"))
-    if not new_slug:
-        return render_template("agent_form.html", agent=new_data, error="Slug obbligatorio"), 400
-    if new_slug != old_slug and new_slug in DB:
-        return render_template("agent_form.html", agent=new_data, error="Slug già esistente"), 400
-
-    # upload: se carichi un file, sovrascrive l’URL del campo
-    photo_file = request.files.get("photo_file")
-    if photo_file:
-        s = _save_upload(photo_file, "photos", ALLOWED_IMG)
-        if s: new_data["photo_url"] = s
-
-    for i in range(1,5):
-        pf = request.files.get(f"pdf{i}_file")
-        if pf:
-            s = _save_upload(pf, "pdf", ALLOWED_PDF)
-            if s: new_data[f"pdf{i}_url"] = s
-
-    gallery_files = request.files.getlist("gallery_files")
-    gallery_saved = []
-    for gf in gallery_files:
-        s = _save_upload(gf, "gallery", ALLOWED_IMG)
-        if s: gallery_saved.append(s)
-    urls_from_text = [u.strip() for u in (new_data.get("gallery_urls") or "").split(",") if u.strip()]
-    new_data["gallery_urls"] = ",".join(urls_from_text + gallery_saved)
-
-    if new_slug != old_slug:
-        DB.pop(old_slug, None)
-    DB[new_slug] = new_data
-    _save_db(DB)
-    return redirect(url_for("admin_home"))
-
-@app.post("/admin/<slug>/delete")
-def admin_delete(slug):
-    if not is_admin(): return redirect(url_for("login"))
-    DB.pop(normalize_slug(slug), None)
-    _save_db(DB)
-    return redirect(url_for("admin_home"))
-
-
-# ---------------------- Media statici ----------------
-@app.get("/media/<path:fp>")
-def media(fp):
-    # serve i file caricati
-    return send_from_directory(UPLOAD_DIR, fp, as_attachment=False)
-
-
-# ---------------------- Pubblico ---------------------
-@app.get("/<slug>")
+@app.route("/<slug>")
 def public_card(slug):
-    slug = normalize_slug(slug)
-    agent = DB.get(slug)
-    if not agent: return render_template("404.html"), 404
-    return render_template("card.html", agent=agent)
+    a = get_agent(slug)
+    if not a:
+        return render_template("404.html"), 404
+    return render_template("card.html", agent=a, BASE_URL=BASE_URL)
 
-@app.get("/vcard/<slug>.vcf")
+# vCard
+@app.route("/vcard/<slug>")
 def vcard(slug):
-    slug = normalize_slug(slug)
-    a = DB.get(slug)
-    if not a: return render_template("404.html"), 404
-
-    name = a.get("name","")
-    mobile = (a.get("phone_mobile") or "").replace(" ", "")
-    office = (a.get("phone_office") or "").replace(" ", "")
-    emails = [e.strip() for e in (a.get("emails") or "").split(",") if e.strip()]
-
-    lines = ["BEGIN:VCARD","VERSION:3.0",f"N:{name};;;;",f"FN:{name}"]
-    if mobile: lines.append(f"TEL;TYPE=CELL:{mobile}")
-    if office: lines.append(f"TEL;TYPE=WORK:{office}")
-    for e in emails: lines.append(f"EMAIL;TYPE=INTERNET:{e}")
+    a = get_agent(slug)
+    if not a: abort(404)
+    lines = [
+        "BEGIN:VCARD",
+        "VERSION:3.0",
+        f"N:{a.get('name','')}",
+        f"ORG:{a.get('company','')}",
+        f"TITLE:{a.get('role','')}",
+    ]
+    # telefoni
+    for num in [a.get("phone_mobile",""), a.get("phone_office","")]:
+        if num.strip():
+            lines.append(f"TEL;TYPE=CELL:{num.strip()}")
+    for num in (a.get("phones_extra","") or "").split(","):
+        if num.strip():
+            lines.append(f"TEL;TYPE=VOICE:{num.strip()}")
+    # email
+    for e in (a.get("emails","") or "").split(","):
+        if e.strip():
+            lines.append(f"EMAIL;TYPE=INTERNET:{e.strip()}")
+    # sito (primo della lista)
+    site = (a.get("websites","") or "").split(",")[0].strip()
+    if site:
+        lines.append(f"URL:{ensure_http(site)}")
     lines.append("END:VCARD")
-    buf = BytesIO("\r\n".join(lines).encode("utf-8"))
-    return send_file(buf, mimetype="text/vcard", download_name=f"{slug}.vcf")
+    v = "\r\n".join(lines)
+    return send_file(io.BytesIO(v.encode("utf-8")), mimetype="text/vcard", as_attachment=True, download_name=f"{slug}.vcf")
 
-@app.get("/qr/<slug>.png")
+# QR PNG
+@app.route("/qr/<slug>.png")
 def qr_png(slug):
-    slug = normalize_slug(slug)
-    if slug not in DB: return render_template("404.html"), 404
-    base = BASE_URL or flask_request.host_url.rstrip("/")
-    url = f"{base}/{slug}"
+    url = f"{BASE_URL}/{slug}"
     img = qrcode.make(url)
-    b = BytesIO(); img.save(b, format="PNG"); b.seek(0)
-    return send_file(b, mimetype="image/png")
+    bio = io.BytesIO()
+    img.save(bio, format="PNG")
+    bio.seek(0)
+    return send_file(bio, mimetype="image/png")
 
+# 404 handler
+@app.errorhandler(403)
+def _403(_):
+    return render_template("404.html", msg="Non autorizzato"), 403
 
-# ---------------------- Errori -----------------------
 @app.errorhandler(404)
-def err404(e):
+def _404(_):
     return render_template("404.html"), 404
 
-@app.errorhandler(500)
-def err500(e):
-    return render_template("500.html") if Path("templates/500.html").exists() else ("Internal Server Error", 500)
-
-
-# ---------------------- Run locale -------------------
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", "10000")))
 
