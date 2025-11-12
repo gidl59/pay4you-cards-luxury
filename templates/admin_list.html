@@ -1,9 +1,8 @@
-{% extends "base.html" %}{% block title %}Dashboard{% endblock %}
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
 {% block content %}
 <h2>Agenti</h2>
-<p><a class="btn" href="{{ url_for('admin_new') }}">+ Nuovo agente</a>
-   <a class="btn" href="{{ url_for('logout') }}">Logout</a></p>
-
+<a class="btn primary" href="{{ url_for('admin_new') }}">+ Nuovo agente</a>
 <table class="table card glass">
   <tr><th>Nome</th><th>Slug</th><th>Telefoni</th><th>Website</th><th>Azioni</th></tr>
   {% for a in agents %}
@@ -14,8 +13,7 @@
     <td>{{ a.websites }}</td>
     <td>
       <a class="btn" href="{{ url_for('admin_edit', slug=a.slug) }}">Modifica</a>
-      <form method="post" action="{{ url_for('admin_delete', slug=a.slug) }}" style="display:inline"
-            onsubmit="return confirm('Eliminare {{ a.name }}?')">
+      <form method="post" action="{{ url_for('admin_delete', slug=a.slug) }}" style="display:inline" onsubmit="return confirm('Eliminare {{ a.name }}?')">
         <button type="submit" class="btn danger">Elimina</button>
       </form>
       <a class="btn" href="{{ url_for('qr_png', slug=a.slug) }}" target="_blank">QR</a>
@@ -25,4 +23,3 @@
   {% endfor %}
 </table>
 {% endblock %}
-
