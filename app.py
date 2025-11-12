@@ -157,15 +157,24 @@ def public_card(slug):
 # QR dinamico PNG: /qr/<slug>.png
 @app.get("/qr/<slug>.png")
 def qr_png(slug):
-    if not one_agent(slug):
-        abort(404)
-    target = card_url(slug)
-    img = qrcode.make(target)
+    # se lo slug non esiste -> 404 elegante
+    agent = DB.get(slug)
+    if not agent:
+        return render_template("404.html"), 404
+        
+
+    # base url: usa ENV se presente, altrimenti host corrente
+    base = (os.getenv("BASE_URL") or request.host_url).rstrip("/")
+    url = f"{base}/{slug}"
+
+    import qrcode
+    from io import BytesIO
+    img = qrcode.make(url)
     buf = BytesIO()
     img.save(buf, format="PNG")
     buf.seek(0)
-    return send_file(buf, mimetype="image/png",
-                     download_name=f"{slug}.png")
+    return send_file(buf, mimetype="image/png")
+
 
 # vCard: /vcard/<slug>.vcf
 @app.get("/vcard/<slug>.vcf")
