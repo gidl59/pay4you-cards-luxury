@@ -1,9 +1,10 @@
-{% extends "base.html" %}{% block title %}Accedi{% endblock %}{% block content %}
+{% extends "base.html" %}{% block title %}Login{% endblock %}
+{% block content %}
 <h2>Accesso amministratore</h2>
 <form method="post" class="card glass">
-  <input type="hidden" name="next" value="{{ next }}"/>
-  <label>Password</label><input type="password" name="password" required>
-  {% if error %}<p class="error">{{ error }}</p>{% endif %}
-  <button type="submit" class="btn primary">Entra</button>
+  {% if error %}<p style="color:#e66">{{ error }}</p>{% endif %}
+  <label>Password</label>
+  <input type="password" name="password" autofocus>
+  <button class="btn primary" type="submit">Entra</button>
 </form>
 {% endblock %}
