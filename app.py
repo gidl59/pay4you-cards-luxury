@@ -1,174 +1,257 @@
-import os
-import sqlite3
-from datetime import datetime
-from flask import (
-    Flask, render_template, request, redirect,
-    url_for, session, send_file, abort, jsonify
-)
+# app.py
+from __future__ import annotations
+import os, json
+from pathlib import Path
 from io import BytesIO
+from datetime import datetime
+
+from flask import (
+    Flask, render_template, request, redirect, url_for,
+    session, send_file, abort
+)
+
 import qrcode
-from PIL import Image
-from urllib.parse import urljoin
 
-# --------------------------------------------------------------------------------------
+
+# -----------------------------------------------------------------------------
 # Config
-# --------------------------------------------------------------------------------------
-def read_secret_key():
-    # Preferisci file segreto se presente (Render -> Secret Files: SECRET_KEY)
-    secret_path = "/etc/secrets/SECRET_KEY"
-    if os.path.isfile(secret_path):
-        with open(secret_path, "rb") as f:
-            return f.read()
-    # Altrimenti prendi APP_SECRET dalle env o fallback d’emergenza
-    return (os.getenv("APP_SECRET") or "dev-secret-change-me").encode()
-
+# -----------------------------------------------------------------------------
 app = Flask(__name__)
-app.secret_key = read_secret_key()
 
-BASE_URL = os.getenv("BASE_URL", "").strip().rstrip("/")
+# secret key: preferisci SECRET FILE (/etc/secrets/SECRET_KEY) -> APP_SECRET -> fallback
+secret_path = Path("/etc/secrets/SECRET_KEY")
+if secret_path.exists():
+    app.secret_key = secret_path.read_text().strip()
+else:
+    app.secret_key = os.getenv("APP_SECRET", "dev-secret-change-me")
+
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "").strip()
+if not ADMIN_PASSWORD:
+    # Senza password non vogliamo far bootare per sicurezza
+    raise RuntimeError("Missing ENV ADMIN_PASSWORD")
 
-# Dove salviamo il DB (scrivibile su Render): /tmp
-DB_PATH = "/tmp/pay4you_cards.db"
+BASE_URL = os.getenv("BASE_URL", "").rstrip("/")
 
-# --------------------------------------------------------------------------------------
-# DB minimale (sqlite3 “puro”, niente flask_sqlalchemy)
-# --------------------------------------------------------------------------------------
-def db():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
 
-def init_db():
-    conn = db()
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS agents (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            slug TEXT UNIQUE NOT NULL,
-            name TEXT,
-            company TEXT,
-            role TEXT,
-            bio TEXT,
-            phone_mobile TEXT,
-            phone_office TEXT,
-            emails TEXT,
-            websites TEXT,
-            facebook TEXT,
-            instagram TEXT,
-            linkedin TEXT,
-            tiktok TEXT,
-            telegram TEXT,
-            whatsapp TEXT,
-            pec TEXT,
-            piva TEXT,
-            sdi TEXT,
-            addresses TEXT,
-            created_at TEXT
-        );
-    """)
-    conn.commit()
-    conn.close()
+# -----------------------------------------------------------------------------
+# Storage: JSON file (no DB). Ogni agente è un dict, indicizzato per slug.
+# -----------------------------------------------------------------------------
+DATA_DIR = Path("data")
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+DB_FILE = DATA_DIR / "db.json"
 
-init_db()
+def _load_db() -> dict:
+    if DB_FILE.exists():
+        try:
+            return json.loads(DB_FILE.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    return {}  # vuoto
 
-# --------------------------------------------------------------------------------------
-# Helpers
-# --------------------------------------------------------------------------------------
-def is_admin():
+def _save_db(db: dict) -> None:
+    tmp = DB_FILE.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(db, ensure_ascii=False, indent=2), encoding="utf-8")
+    tmp.replace(DB_FILE)
+
+DB: dict[str, dict] = _load_db()
+
+
+# -----------------------------------------------------------------------------
+# Utility / Template filters
+# -----------------------------------------------------------------------------
+@app.template_filter("ensure_http")
+def ensure_http(u: str | None):
+    if not u:
+        return ""
+    u = u.strip()
+    if u.startswith(("http://", "https://")):
+        return u
+    return "https://" + u
+
+def is_admin() -> bool:
     return bool(session.get("admin"))
 
-def require_admin():
+def normalize_slug(s: str) -> str:
+    return (s or "").strip().lower()
+
+
+# -----------------------------------------------------------------------------
+# Health
+# -----------------------------------------------------------------------------
+@app.get("/health")
+def health():
+    return {"ok": True, "ts": datetime.utcnow().isoformat()}
+
+
+# -----------------------------------------------------------------------------
+# Auth semplice: solo password
+# -----------------------------------------------------------------------------
+@app.get("/login")
+def login():
+    if is_admin():
+        return redirect(url_for("admin_home"))
+    return render_template("login.html")
+
+@app.post("/login")
+def do_login():
+    pw = request.form.get("password", "")
+    if pw == ADMIN_PASSWORD:
+        session["admin"] = True
+        return redirect(url_for("admin_home"))
+    return render_template("login.html", error="Password non corretta"), 401
+
+@app.get("/logout")
+def logout():
+    session.clear()
+    return redirect(url_for("login"))
+
+
+# -----------------------------------------------------------------------------
+# Admin
+# -----------------------------------------------------------------------------
+@app.get("/")
+def root_redirect():
+    return redirect(url_for("admin_home"))
+
+@app.get("/admin")
+def admin_home():
+    if not is_admin():
+        return redirect(url_for("login"))
+    # ordina per nome
+    agents = sorted(DB.values(), key=lambda a: (a.get("name") or "").lower())
+    return render_template("admin_list.html", agents=agents)
+
+@app.get("/admin/new")
+def admin_new():
+    if not is_admin():
+        return redirect(url_for("login"))
+    return render_template("agent_form.html", agent=None, error=None)
+
+@app.post("/admin/new")
+def admin_new_post():
     if not is_admin():
         return redirect(url_for("login"))
 
-def one_agent(slug):
-    c = db().execute("SELECT * FROM agents WHERE slug = ?", (slug,))
-    row = c.fetchone()
-    c.connection.close()
-    return row
-
-def all_agents():
-    c = db().execute("SELECT * FROM agents ORDER BY id DESC")
-    rows = c.fetchall()
-    c.connection.close()
-    return rows
-
-def save_agent(data, for_update=False):
-    conn = db()
+    # campi gestiti
     fields = [
-        "slug", "name", "company", "role", "bio",
-        "phone_mobile", "phone_office", "emails", "websites",
-        "facebook", "instagram", "linkedin", "tiktok", "telegram", "whatsapp",
-        "pec", "piva", "sdi", "addresses"
+        "slug","name","company","role","bio",
+        "phone_mobile","phone_office","emails","websites",
+        "facebook","instagram","linkedin","tiktok",
+        "telegram","whatsapp","pec","piva","sdi","addresses",
+        "photo_url","gallery_urls","pdf1_url","pdf2_url","pdf3_url","pdf4_url",
     ]
-    vals = [data.get(f, "").strip() for f in fields]
+    agent = {f: request.form.get(f, "").strip() for f in fields}
+    agent["slug"] = normalize_slug(agent["slug"])
 
-    if for_update:
-        # update by slug
-        set_clause = ", ".join([f"{f} = ?" for f in fields if f != "slug"])
-        update_vals = [data.get(f, "").strip() for f in fields if f != "slug"]
-        update_vals.append(data.get("slug","").strip())
-        conn.execute(f"UPDATE agents SET {set_clause} WHERE slug = ?", update_vals)
-    else:
-        conn.execute("""
-            INSERT INTO agents (
-                slug, name, company, role, bio,
-                phone_mobile, phone_office, emails, websites,
-                facebook, instagram, linkedin, tiktok, telegram, whatsapp,
-                pec, piva, sdi, addresses, created_at
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-        """, vals + [datetime.utcnow().isoformat()])
-    conn.commit()
-    conn.close()
+    if not agent["slug"]:
+        return render_template("agent_form.html", agent=agent, error="Slug obbligatorio"), 400
+    if agent["slug"] in DB:
+        return render_template("agent_form.html", agent=agent, error="Slug già esistente"), 400
 
-def delete_agent(slug):
-    conn = db()
-    conn.execute("DELETE FROM agents WHERE slug = ?", (slug,))
-    conn.commit()
-    conn.close()
+    DB[agent["slug"]] = agent
+    _save_db(DB)
+    return redirect(url_for("admin_home"))
 
-def card_url(slug):
-    # URL assoluto alla card pubblica
-    if BASE_URL:
-        return f"{BASE_URL}/{slug}"
-    # fallback locale
-    return url_for("public_card", slug=slug, _external=True)
+@app.get("/admin/<slug>/edit")
+def admin_edit(slug):
+    if not is_admin():
+        return redirect(url_for("login"))
+    slug = normalize_slug(slug)
+    agent = DB.get(slug)
+    if not agent:
+        return render_template("404.html"), 404
+    return render_template("agent_form.html", agent=agent, error=None)
 
-# --------------------------------------------------------------------------------------
-# Rotte pubbliche
-# --------------------------------------------------------------------------------------
-@app.get("/health")
-def health():
-    return "OK", 200
+@app.post("/admin/<slug>/edit")
+def admin_edit_post(slug):
+    if not is_admin():
+        return redirect(url_for("login"))
+    old_slug = normalize_slug(slug)
+    agent = DB.get(old_slug)
+    if not agent:
+        return render_template("404.html"), 404
 
-# Alias per soddisfare i template che puntano a 'home' (es. 404.html)
-@app.get("/")
-def home():
-    return redirect(url_for("login"))
+    fields = [
+        "slug","name","company","role","bio",
+        "phone_mobile","phone_office","emails","websites",
+        "facebook","instagram","linkedin","tiktok",
+        "telegram","whatsapp","pec","piva","sdi","addresses",
+        "photo_url","gallery_urls","pdf1_url","pdf2_url","pdf3_url","pdf4_url",
+    ]
+    new_data = {f: request.form.get(f, "").strip() for f in fields}
+    new_slug = normalize_slug(new_data.get("slug"))
 
-# Card pubblica: /<slug>
+    if not new_slug:
+        return render_template("agent_form.html", agent=new_data, error="Slug obbligatorio"), 400
+    if new_slug != old_slug and new_slug in DB:
+        return render_template("agent_form.html", agent=new_data, error="Slug già esistente"), 400
+
+    # aggiorna/rename
+    if new_slug != old_slug:
+        DB.pop(old_slug, None)
+    DB[new_slug] = new_data
+    _save_db(DB)
+    return redirect(url_for("admin_home"))
+
+@app.post("/admin/<slug>/delete")
+def admin_delete(slug):
+    if not is_admin():
+        return redirect(url_for("login"))
+    slug = normalize_slug(slug)
+    DB.pop(slug, None)
+    _save_db(DB)
+    return redirect(url_for("admin_home"))
+
+
+# -----------------------------------------------------------------------------
+# Pubblico: Card, vCard, QR
+# -----------------------------------------------------------------------------
 @app.get("/<slug>")
 def public_card(slug):
-    agent = one_agent(slug)
+    slug = normalize_slug(slug)
+    agent = DB.get(slug)
     if not agent:
         return render_template("404.html"), 404
     return render_template("card.html", agent=agent)
 
-# QR dinamico PNG: /qr/<slug>.png
-@app.get("/qr/<slug>.png")
-def qr_png(slug):
-    # se lo slug non esiste -> 404 elegante
+@app.get("/vcard/<slug>.vcf")
+def vcard(slug):
+    slug = normalize_slug(slug)
     agent = DB.get(slug)
     if not agent:
         return render_template("404.html"), 404
-        
 
-    # base url: usa ENV se presente, altrimenti host corrente
-    base = (os.getenv("BASE_URL") or request.host_url).rstrip("/")
+    # vCard semplice
+    name = agent.get("name","")
+    mobile = (agent.get("phone_mobile") or "").replace(" ", "")
+    office = (agent.get("phone_office") or "").replace(" ", "")
+    emails = [e.strip() for e in (agent.get("emails") or "").split(",") if e.strip()]
+
+    lines = [
+        "BEGIN:VCARD",
+        "VERSION:3.0",
+        f"N:{name};;;;",
+        f"FN:{name}",
+    ]
+    if mobile: lines.append(f"TEL;TYPE=CELL:{mobile}")
+    if office: lines.append(f"TEL;TYPE=WORK:{office}")
+    for e in emails:
+        lines.append(f"EMAIL;TYPE=INTERNET:{e}")
+    lines.append("END:VCARD")
+    data = "\r\n".join(lines).encode("utf-8")
+
+    return send_file(BytesIO(data), mimetype="text/vcard", download_name=f"{slug}.vcf")
+
+@app.get("/qr/<slug>.png")
+def qr_png(slug):
+    slug = normalize_slug(slug)
+    agent = DB.get(slug)
+    if not agent:
+        return render_template("404.html"), 404
+
+    base = BASE_URL or request.host_url.rstrip("/")
     url = f"{base}/{slug}"
 
-    import qrcode
-    from io import BytesIO
     img = qrcode.make(url)
     buf = BytesIO()
     img.save(buf, format="PNG")
@@ -176,148 +259,23 @@ def qr_png(slug):
     return send_file(buf, mimetype="image/png")
 
 
-# vCard: /vcard/<slug>.vcf
-@app.get("/vcard/<slug>.vcf")
-def vcard(slug):
-    agent = one_agent(slug)
-    if not agent:
-        abort(404)
-
-    name = agent["name"] or ""
-    fn = name.replace("\n", " ")
-    tel1 = (agent["phone_mobile"] or "").replace(" ", "")
-    tel2 = (agent["phone_office"] or "").replace(" ", "")
-    emails = (agent["emails"] or "").split(",")
-    org = agent["company"] or ""
-    title = agent["role"] or ""
-    url_primary = (agent["websites"] or "").split(",")[0].strip()
-    adr = (agent["addresses"] or "").split("\n")[0].strip()
-
-    lines = [
-        "BEGIN:VCARD",
-        "VERSION:3.0",
-        f"FN:{fn}",
-        f"ORG:{org}",
-        f"TITLE:{title}",
-    ]
-    if tel1:
-        lines.append(f"TEL;TYPE=CELL:{tel1}")
-    if tel2:
-        lines.append(f"TEL;TYPE=WORK:{tel2}")
-    for e in emails:
-        e = e.strip()
-        if e:
-            lines.append(f"EMAIL;TYPE=INTERNET:{e}")
-    if url_primary:
-        lines.append(f"URL:{url_primary}")
-    if adr:
-        lines.append(f"ADR;TYPE=WORK:;;{adr};;;;")
-    lines.append("END:VCARD")
-
-    data = "\r\n".join(lines).encode("utf-8")
-    return send_file(
-        BytesIO(data),
-        mimetype="text/vcard",
-        download_name=f"{slug}.vcf"
-    )
-
-# --------------------------------------------------------------------------------------
-# Login / Logout
-# --------------------------------------------------------------------------------------
-@app.get("/login")
-def login():
-    # Pagina di login (solo password)
-    if is_admin():
-        return redirect(url_for("admin_home"))
-    return render_template("login.html")
-
-@app.post("/login")
-def login_post():
-    pwd = (request.form.get("password") or "").strip()
-    if not ADMIN_PASSWORD:
-        # se non configurata, blocchiamo l’accesso
-        return render_template("login.html", error="ADMIN_PASSWORD non configurata su Render.")
-    if pwd == ADMIN_PASSWORD:
-        session["admin"] = True
-        return redirect(url_for("admin_home"))
-    return render_template("login.html", error="Password errata.")
-
-@app.get("/logout")
-def logout():
-    session.clear()
-    return redirect(url_for("login"))
-
-# --------------------------------------------------------------------------------------
-# Admin
-# --------------------------------------------------------------------------------------
-@app.get("/admin")
-def admin_home():
-    if not is_admin():
-        return redirect(url_for("login"))
-    agents = all_agents()
-    return render_template("admin_list.html", agents=agents)
-
-@app.get("/admin/new")
-def admin_new():
-    if not is_admin():
-        return redirect(url_for("login"))
-    return render_template("agent_form.html", agent=None)
-
-@app.post("/admin/new")
-def admin_new_post():
-    if not is_admin():
-        return redirect(url_for("login"))
-    data = {k: (request.form.get(k) or "") for k in request.form.keys()}
-    # controllo slug
-    slug = (data.get("slug") or "").strip()
-    if not slug:
-        return render_template("agent_form.html", agent=data, error="Slug obbligatorio.")
-    if one_agent(slug):
-        return render_template("agent_form.html", agent=data, error="Slug già esistente.")
-    save_agent(data, for_update=False)
-    return redirect(url_for("admin_home"))
-
-@app.get("/admin/<slug>/edit")
-def admin_edit(slug):
-    if not is_admin():
-        return redirect(url_for("login"))
-    agent = one_agent(slug)
-    if not agent:
-        return render_template("404.html"), 404
-    return render_template("agent_form.html", agent=agent)
-
-@app.post("/admin/<slug>/edit")
-def admin_edit_post(slug):
-    if not is_admin():
-        return redirect(url_for("login"))
-    data = {k: (request.form.get(k) or "") for k in request.form.keys()}
-    data["slug"] = slug  # non permettiamo cambio slug dalla form
-    if not one_agent(slug):
-        return render_template("agent_form.html", agent=data, error="Agente non trovato.")
-    save_agent(data, for_update=True)
-    return redirect(url_for("admin_home"))
-
-@app.post("/admin/<slug>/delete")
-def admin_delete(slug):
-    if not is_admin():
-        return redirect(url_for("login"))
-    if not one_agent(slug):
-        return render_template("404.html"), 404
-    delete_agent(slug)
-    return redirect(url_for("admin_home"))
-
-# --------------------------------------------------------------------------------------
-# Error handlers
-# --------------------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+# Errori
+# -----------------------------------------------------------------------------
 @app.errorhandler(404)
-def not_found(e):
-    # Usa il tuo 404.html
+def err404(e):
     return render_template("404.html"), 404
 
-# --------------------------------------------------------------------------------------
-# Avvio locale
-# --------------------------------------------------------------------------------------
+@app.errorhandler(500)
+def err500(e):
+    # pagina bianca default è brutta: mostriamo 500 elegante
+    return render_template("500.html") if Path("templates/500.html").exists() else ("Internal Server Error", 500)
+
+
+# -----------------------------------------------------------------------------
+# Run (locale)
+# -----------------------------------------------------------------------------
 if __name__ == "__main__":
-    # Avvio dev
-    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)), debug=True)
+    # Per debug locale
+    app.run(host="0.0.0.0", port=5000, debug=True)
 
