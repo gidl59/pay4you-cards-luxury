@@ -1,68 +1,70 @@
-{% extends "base.html" %}{% block title %}{{ ag.name }} - Pay4You{% endblock %}{% block content %}
-<div class="cardh glass">
-  <div class="left">
-    <div class="avatar-wrap">
-      <img class="avatar" src="{{ ag.photo_url or url_for('static', filename='img/avatar-default.png') }}" alt="{{ ag.name }}">
-    </div>
-  </div>
-  <div class="right">
-    <h1>{{ ag.name }}</h1>
-    {% if ag.company %}<p class="muted">{{ ag.company }}</p>{% endif %}
-    {% if ag.role %}<p class="role">{{ ag.role }}</p>{% endif %}
-    {% if ag.bio %}<p class="bio">{{ ag.bio }}</p>{% endif %}
-    <div class="cols">
-      <div>
-        {% if ag.phone_mobile %}<p>📱 <a href="tel:{{ ag.phone_mobile | replace(' ', '') }}">{{ ag.phone_mobile }}</a></p>{% endif %}
-        {% if ag.phone_office %}<p>☎️ <a href="tel:{{ ag.phone_office | replace(' ', '') }}">{{ ag.phone_office }}</a></p>{% endif %}
-        {% for e in emails %}<p>✉️ <a href="mailto:{{ e }}">{{ e }}</a></p>{% endfor %}
-        {% for w in websites %}<p>🌐 <a href="{{ w }}" target="_blank" rel="noopener">{{ w }}</a></p>{% endfor %}
-      </div>
-      <div>
-        {% if ag.facebook %}<p>f Facebook: <a href="{{ ag.facebook }}" target="_blank">Apri</a></p>{% endif %}
-        {% if ag.instagram %}<p>Instagram: <a href="{{ ag.instagram }}" target="_blank">Apri</a></p>{% endif %}
-        {% if ag.linkedin %}<p>LinkedIn: <a href="{{ ag.linkedin }}" target="_blank">Apri</a></p>{% endif %}
-        {% if ag.tiktok %}<p>TikTok: <a href="{{ ag.tiktok }}" target="_blank">Apri</a></p>{% endif %}
-        {% if ag.telegram %}<p>Telegram: <a href="{{ ag.telegram }}" target="_blank">Apri</a></p>{% endif %}
-        {% set wa = (ag.whatsapp or ag.phone_mobile or '') | replace(' ', '') %}
-        {% if wa %}
-          {% if 'http' in wa %}
-            <p>WhatsApp: <a href="{{ wa }}" target="_blank" rel="noopener">Chat</a></p>
-          {% else %}
-            <p>WhatsApp: <a href="https://wa.me/{{ wa|replace('+','') }}" target="_blank" rel="noopener">Chat</a></p>
-          {% endif %}
+{% extends "base.html" %}{% block title %}{{ agent.name }}{% endblock %}
+{% block content %}
+<div class="card glass">
+  <div class="grid" style="align-items:center">
+    <div style="text-align:center">
+      <div style="
+        width:160px;height:160px;margin:auto;border-radius:999px;overflow:hidden;
+        background:#111;display:flex;align-items:center;justify-content:center;">
+        {% if agent.photo_url %}
+          <img src="{{ agent.photo_url }}" alt="{{ agent.name }}" style="width:100%;height:100%;object-fit:cover;">
+        {% else %}
+          <div style="color:#777">Nessuna foto</div>
         {% endif %}
       </div>
     </div>
-    <div class="actions">
-      <a class="btn primary" href="{{ url_for('vcard', slug=ag.slug) }}"> Aggiungi a Contatti (iPhone)</a>
-      <a class="btn" href="{{ url_for('vcard', slug=ag.slug) }}?download=1">🤖 Salva in Rubrica (Android)</a>
-      <a class="btn outline" href="{{ url_for('qr_png', slug=ag.slug) }}" target="_blank">🧾 QR personale</a>
+    <div>
+      <h2 style="margin:0">{{ agent.name }}</h2>
+      {% if agent.company %}<div>{{ agent.company }}</div>{% endif %}
+      {% if agent.role %}<div>{{ agent.role }}</div>{% endif %}
+      {% if agent.bio %}<p style="margin-top:8px">{{ agent.bio }}</p>{% endif %}
+
+      <ul class="plain">
+        {% if agent.phone_mobile %}<li>📱 <a href="tel:{{ agent.phone_mobile }}">{{ agent.phone_mobile }}</a></li>{% endif %}
+        {% if agent.phone_office %}<li>☎️ <a href="tel:{{ agent.phone_office }}">{{ agent.phone_office }}</a></li>{% endif %}
+        {% if agent.emails %}
+          {% for e in agent.emails.split(",") %}
+            {% set e2 = e.strip() %}
+            {% if e2 %}<li>✉️ <a href="mailto:{{ e2 }}">{{ e2 }}</a></li>{% endif %}
+          {% endfor %}
+        {% endif %}
+        {% if agent.websites %}
+          {% for w in agent.websites.split(",") %}
+            {% set w2 = w.strip() %}
+            {% if w2 %}<li>🌐 <a href="{{ w2|ensure_http }}" target="_blank" rel="noopener">{{ w2 }}</a></li>{% endif %}
+          {% endfor %}
+        {% endif %}
+      </ul>
+
+      <p>
+        <a class="btn" href="{{ url_for('vcard', slug=agent.slug) }}">Salva in Rubrica</a>
+        <a class="btn" href="{{ url_for('qr_png', slug=agent.slug) }}" target="_blank">QR personale</a>
+      </p>
     </div>
   </div>
 </div>
 
-{% if addresses or ag.piva or ag.sdi %}
-<h3>Indirizzi</h3>
-<ul class="list">
-  {% for a in addresses %}<li>{{ a }}</li>{% endfor %}
-  {% if ag.piva %}<li>🧾 Partita IVA: {{ ag.piva }}</li>{% endif %}
-  {% if ag.sdi %}<li>📮 SDI: {{ ag.sdi }}</li>{% endif %}
-</ul>
-{% endif %}
-
-{% if ag.pdf1_url or ag.pdf2_url %}
-<h3>Documenti</h3><ul class="list">
-  {% if ag.pdf1_url %}<li><a href="{{ ag.pdf1_url }}" target="_blank">Documento 1 (PDF)</a></li>{% endif %}
-  {% if ag.pdf2_url %}<li><a href="{{ ag.pdf2_url }}" target="_blank">Documento 2 (PDF)</a></li>{% endif %}
-</ul>
-{% endif %}
-
+{% set gallery = (agent.gallery_urls or '').split(',') %}
+{% set gallery = [g.strip() for g in gallery if g.strip()] %}
 {% if gallery %}
-<h3>Galleria</h3>
-<div class="gallery">
-  {% for g in gallery %}
-    <img src="{{ g }}" alt="galleria {{ loop.index }}">
-  {% endfor %}
-</div>
+  <h3>Galleria</h3>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;">
+    {% for g in gallery %}
+      <div style="border-radius:14px;overflow:hidden;background:#111;height:140px">
+        <img src="{{ g }}" alt="img" style="width:100%;height:100%;object-fit:cover;">
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}
+
+{% set pdfs = [agent.pdf1_url, agent.pdf2_url, agent.pdf3_url, agent.pdf4_url] %}
+{% set pdfs = [p for p in pdfs if p] %}
+{% if pdfs %}
+  <h3>Documenti</h3>
+  <ul class="plain">
+    {% for p in pdfs %}
+      <li>📄 <a href="{{ p|ensure_http }}" target="_blank" rel="noopener">Apri PDF {{ loop.index }}</a></li>
+    {% endfor %}
+  </ul>
 {% endif %}
 {% endblock %}
