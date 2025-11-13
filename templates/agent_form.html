@@ -1,12 +1,16 @@
 {% extends "base.html" %}
-{% block title %}Agente{% endblock %}
+{% block title %}{{ 'Modifica' if agent else 'Nuovo' }} agente{% endblock %}
 {% block content %}
-<h2>{{ 'Nuovo' if not agent else 'Modifica' }} agente</h2>
+<div class="card glass">
+  <h2>{{ 'Modifica' if agent else 'Nuovo' }} agente</h2>
 
-<form method="post" enctype="multipart/form-data" class="card glass">
-  <div class="grid">
+  {% if error %}
+    <p class="error">{{ error }}</p>
+  {% endif %}
+
+  <form method="post" class="grid-2">
     <div>
-      <label>Slug</label>
+      <label>Slug (per l'URL)</label>
       <input name="slug" value="{{ agent.slug if agent else '' }}" required>
 
       <label>Nome completo</label>
@@ -18,7 +22,7 @@
       <label>Posizione lavorativa</label>
       <input name="role" value="{{ agent.role if agent else '' }}">
 
-      <label>Descrizione</label>
+      <label>Descrizione / Bio</label>
       <textarea name="bio" rows="4">{{ agent.bio if agent else '' }}</textarea>
     </div>
 
@@ -29,77 +33,92 @@
       <label>Telefono ufficio</label>
       <input name="phone_office" value="{{ agent.phone_office if agent else '' }}">
 
-      <label>Altri telefoni (separati da virgola)</label>
-      <input name="phones_extra" value="{{ agent.phones_extra if agent else '' }}">
-
       <label>Mail (separa con virgola)</label>
-      <input name="emails" value="{{ agent.emails if agent else '' }}" placeholder="a@x.it, b@x.it">
+      <input name="emails"
+             value="{{ agent.emails if agent else '' }}"
+             placeholder="a@x.it, b@x.it">
 
       <label>Siti web (separa con virgola)</label>
-      <input name="websites" value="{{ agent.websites if agent else '' }}" placeholder="https://... , https://...">
+      <input name="websites"
+             value="{{ agent.websites if agent else '' }}"
+             placeholder="https://..., https://...">
     </div>
-  </div>
+  </form>
 
   <h3>Social</h3>
-  <div class="grid">
+  <form method="post" class="grid-2">
     <div>
-      <label>Facebook (URL)</label><input name="facebook" value="{{ agent.facebook if agent else '' }}">
-      <label>Instagram (URL)</label><input name="instagram" value="{{ agent.instagram if agent else '' }}">
-      <label>LinkedIn (URL)</label><input name="linkedin" value="{{ agent.linkedin if agent else '' }}">
+      <label>Facebook</label>
+      <input name="facebook" value="{{ agent.facebook if agent else '' }}">
+
+      <label>Instagram</label>
+      <input name="instagram" value="{{ agent.instagram if agent else '' }}">
+
+      <label>LinkedIn</label>
+      <input name="linkedin" value="{{ agent.linkedin if agent else '' }}">
     </div>
     <div>
-      <label>TikTok (URL)</label><input name="tiktok" value="{{ agent.tiktok if agent else '' }}">
-      <label>Telegram (URL)</label><input name="telegram" value="{{ agent.telegram if agent else '' }}">
-      <label>WhatsApp (numero o link wa.me)</label><input name="whatsapp" value="{{ agent.whatsapp if agent else '' }}">
+      <label>TikTok</label>
+      <input name="tiktok" value="{{ agent.tiktok if agent else '' }}">
+
+      <label>Telegram</label>
+      <input name="telegram" value="{{ agent.telegram if agent else '' }}">
+
+      <label>WhatsApp (numero o link wa.me)</label>
+      <input name="whatsapp"
+             value="{{ agent.whatsapp if agent else '' }}"
+             placeholder="3939... oppure https://wa.me/...">
     </div>
-  </div>
+  </form>
 
-  <h3>Media</h3>
-  <div class="grid">
+  <h3>Dati aziendali</h3>
+  <form method="post" class="grid-2">
     <div>
-      <label>Foto profilo (file)</label>
-      <input type="file" name="photo" accept="image/*">
-      <label>…oppure URL foto</label>
-      <input name="photo_url" value="{{ agent.photo_url if agent else '' }}">
+      <label>PEC</label>
+      <input name="pec" value="{{ agent.pec if agent else '' }}">
 
-      <label>Allineamento verticale foto (0=alto,100=basso)</label>
-      <input type="range" name="photo_y" min="0" max="100" step="1" value="{{ agent.photo_y if agent and agent.photo_y else 50 }}">
+      <label>Partita IVA</label>
+      <input name="piva" value="{{ agent.piva if agent else '' }}">
 
-      <label>Zoom foto (1.00–1.80)</label>
-      <input type="range" name="photo_zoom" min="1" max="1.8" step="0.05" value="{{ agent.photo_zoom if agent and agent.photo_zoom else 1 }}">
-    </div>
-
-    <div>
-      <label>PDF 1 (file)</label><input type="file" name="pdf1" accept="application/pdf">
-      <label>PDF 1 (URL)</label><input name="pdf1_url" value="">
-      <label>PDF 2 (file)</label><input type="file" name="pdf2" accept="application/pdf">
-      <label>PDF 2 (URL)</label><input name="pdf2_url" value="">
-      <label>PDF 3 (file)</label><input type="file" name="pdf3" accept="application/pdf">
-      <label>PDF 3 (URL)</label><input name="pdf3_url" value="">
-      <label>PDF 4 (file)</label><input type="file" name="pdf4" accept="application/pdf">
-      <label>PDF 4 (URL)</label><input name="pdf4_url" value="">
-    </div>
-  </div>
-
-  <h3>Galleria</h3>
-  <div class="grid">
-    <div>
-      <label>Carica immagini (multiplo)</label>
-      <input type="file" name="gallery" accept="image/*" multiple>
+      <label>Codice SDI</label>
+      <input name="sdi" value="{{ agent.sdi if agent else '' }}">
     </div>
     <div>
-      <label>…oppure URL immagini (separa con virgola)</label>
-      <input name="gallery_urls" value="{{ agent.gallery_urls if agent else '' }}">
+      <label>Indirizzi (max 3, uno per riga)</label>
+      <textarea name="addresses" rows="4">{{ agent.addresses if agent else '' }}</textarea>
     </div>
-  </div>
+  </form>
 
-  <div style="margin-top:16px">
+  <h3>Media (URL)</h3>
+  <form method="post" class="grid-2">
+    <div>
+      <label>Foto profilo (URL)</label>
+      <input name="photo_url"
+             value="{{ agent.photo_url if agent else '' }}"
+             placeholder="https://...">
+
+      <label>PDF 1 (URL)</label>
+      <input name="pdf1_url"
+             value="{{ agent.pdf1_url if agent else '' }}"
+             placeholder="https://...">
+
+      <label>PDF 2 (URL)</label>
+      <input name="pdf2_url"
+             value="{{ agent.pdf2_url if agent else '' }}"
+             placeholder="https://...">
+    </div>
+    <div>
+      <label>Galleria immagini (URL separati da virgola o a capo)</label>
+      <textarea name="gallery_urls" rows="6"
+        placeholder="https://img1..., https://img2...">{{ agent.gallery_urls if agent else '' }}</textarea>
+    </div>
+  </form>
+
+  <form method="post">
+    <!-- campo nascosto per mantenere lo slug se il browser fa casino con i form spezzati -->
+    <input type="hidden" name="slug" value="{{ agent.slug if agent else '' }}">
     <button type="submit" class="btn primary">Salva</button>
-    {% if agent %}
-      <form method="post" action="{{ url_for('admin_delete', slug=agent.slug) }}" style="display:inline" onsubmit="return confirm('Eliminare {{ agent.name }}?')">
-        <button type="submit" class="btn danger">Elimina</button>
-      </form>
-    {% endif %}
-  </div>
-</form>
+  </form>
+</div>
 {% endblock %}
+
