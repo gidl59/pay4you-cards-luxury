@@ -1,13 +1,19 @@
 {% extends "base.html" %}
-{% block title %}{{ 'Modifica' if agent else 'Nuovo' }} Agente{% endblock %}
+{% block title %}Agente{% endblock %}
+
 {% block content %}
 
 <h2>{{ 'Modifica' if agent else 'Nuovo' }} agente</h2>
 
-<form method="post" enctype="multipart/form-data" class="card glass form-big">
+{% if error %}
+<div class="alert">{{ error }}</div>
+{% endif %}
 
-  <label>Slug (nome card)</label>
-  <input name="slug" value="{{ agent.slug if agent else '' }}" required>
+<form method="post" enctype="multipart/form-data" class="card glass">
+
+  <h3>Dati principali</h3>
+  <label>Slug (per URL)</label>
+  <input name="slug" value="{{ agent.slug if agent else '' }}" required {% if agent %}readonly{% endif %}>
 
   <label>Nome completo</label>
   <input name="name" value="{{ agent.name if agent else '' }}" required>
@@ -15,13 +21,13 @@
   <label>Azienda</label>
   <input name="company" value="{{ agent.company if agent else '' }}">
 
-  <label>Ruolo</label>
+  <label>Posizione lavorativa</label>
   <input name="role" value="{{ agent.role if agent else '' }}">
 
-  <label>Descrizione</label>
-  <textarea name="bio" rows="3">{{ agent.bio if agent else '' }}</textarea>
+  <label>Descrizione / Bio</label>
+  <textarea name="bio" rows="4">{{ agent.bio if agent else '' }}</textarea>
 
-  <hr>
+  <h3>Contatti</h3>
 
   <label>Telefono mobile</label>
   <input name="phone_mobile" value="{{ agent.phone_mobile if agent else '' }}">
@@ -29,13 +35,11 @@
   <label>Telefono ufficio</label>
   <input name="phone_office" value="{{ agent.phone_office if agent else '' }}">
 
-  <label>Email (separate con virgola)</label>
+  <label>Mail (separa con virgola)</label>
   <input name="emails" value="{{ agent.emails if agent else '' }}">
 
-  <label>Siti web (separati da virgola)</label>
+  <label>Siti web (separa con virgola)</label>
   <input name="websites" value="{{ agent.websites if agent else '' }}">
-
-  <hr>
 
   <h3>Social</h3>
 
@@ -45,24 +49,36 @@
   <label>Instagram</label>
   <input name="instagram" value="{{ agent.instagram if agent else '' }}">
 
-  <label>LinkedIn</label>
-  <input name="linkedin" value="{{ agent.linkedin if agent else '' }}">
-
   <label>TikTok</label>
   <input name="tiktok" value="{{ agent.tiktok if agent else '' }}">
 
   <label>Telegram</label>
   <input name="telegram" value="{{ agent.telegram if agent else '' }}">
 
-  <label>WhatsApp</label>
+  <label>WhatsApp (numero o link)</label>
   <input name="whatsapp" value="{{ agent.whatsapp if agent else '' }}">
 
-  <hr>
+  <h3>Dati aziendali</h3>
+
+  <label>PEC</label>
+  <input name="pec" value="{{ agent.pec if agent else '' }}">
+
+  <label>Partita IVA</label>
+  <input name="piva" value="{{ agent.piva if agent else '' }}">
+
+  <label>Codice SDI</label>
+  <input name="sdi" value="{{ agent.sdi if agent else '' }}">
+
+  <label>Indirizzi (uno per riga)</label>
+  <textarea name="addresses" rows="3">{{ agent.addresses if agent else '' }}</textarea>
 
   <h3>Media</h3>
 
   <label>Foto profilo</label>
   <input type="file" name="photo" accept="image/*">
+
+  <label>Galleria immagini (max 12)</label>
+  <input type="file" name="gallery" multiple accept="image/*">
 
   <label>PDF 1</label>
   <input type="file" name="pdf1" accept="application/pdf">
@@ -70,16 +86,7 @@
   <label>PDF 2</label>
   <input type="file" name="pdf2" accept="application/pdf">
 
-  <label>PDF 3</label>
-  <input type="file" name="pdf3" accept="application/pdf">
-
-  <label>PDF 4</label>
-  <input type="file" name="pdf4" accept="application/pdf">
-
-  <label>Galleria immagini (max 12)</label>
-  <input type="file" name="gallery" accept="image/*" multiple>
-
-  <button class="btn primary">Salva</button>
+  <button class="btn primary" type="submit">Salva</button>
 
 </form>
 
