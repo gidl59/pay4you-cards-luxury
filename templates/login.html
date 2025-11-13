@@ -1,20 +1,18 @@
 {% extends "base.html" %}
-{% block title %}Accesso Admin{% endblock %}
-{% block content %}
+{% block title %}Accesso admin{% endblock %}
 
-<div class="card glass center login-box">
+{% block content %}
+<div class="card glass login-box">
   <h2>Accesso amministratore</h2>
 
   {% if error %}
-    <div class="alert">Password errata</div>
+  <div class="alert">{{ error }}</div>
   {% endif %}
 
   <form method="post">
     <label>Password</label>
     <input type="password" name="password" required>
-
     <button class="btn primary" type="submit">Entra</button>
   </form>
 </div>
-
 {% endblock %}
