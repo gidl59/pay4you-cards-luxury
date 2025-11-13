@@ -2,46 +2,41 @@
 <html lang="it">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{% block title %}Pay4You Card{% endblock %}</title>
 
-  <title>{% block title %}Pay4You Cards{% endblock %}</title>
+  <!-- FONT iOS -->
+  <link href="https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-
-  <!-- FONT -->
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
 </head>
 
-<body class="lux">
+<body class="lux-body">
 
-<header class="topbar">
-  <div class="wrap topbar-flex">
+<header class="lux-header">
+  <div class="lux-header-blur"></div>
 
-    <!-- LOGO PAY4YOU -->
-    <div class="brand-wrap">
-      <img src="{{ url_for('static', filename='img/pay4you-logo-lux.png') }}"
-           class="brand" alt="Pay4You">
-      <strong>Cards</strong>
-    </div>
-
-    <nav>
-      {% if session.get('admin') %}
-        <a href="{{ url_for('admin_home') }}">Dashboard</a>
-        <a href="{{ url_for('logout') }}">Logout</a>
-      {% else %}
-        <a href="{{ url_for('login') }}">Login</a>
-      {% endif %}
-    </nav>
-
+  <div class="lux-header-inner">
+    <img src="{{ url_for('static', filename='img/pay4you-logo-lux.png') }}" class="lux-logo">
+    <span class="lux-logo-title">Pay4You</span>
   </div>
+
+  <nav class="lux-nav">
+    {% if session.get('admin') %}
+      <a href="{{ url_for('admin_home') }}">Dashboard</a>
+      <a href="{{ url_for('logout') }}">Logout</a>
+    {% else %}
+      <a href="{{ url_for('login') }}">Login</a>
+    {% endif %}
+  </nav>
 </header>
 
-<main class="wrap mainpad">
+<main class="lux-main">
   {% block content %}{% endblock %}
 </main>
 
-<footer class="footer wrap">
-  © 2025 Pay4You • Card digitale
+<footer class="lux-footer">
+  © 2025 Pay4You • Card digitale luxury edition
 </footer>
 
 </body>
