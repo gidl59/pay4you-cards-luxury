@@ -10,7 +10,7 @@
   <header class="topbar">
     <div class="wrap">
       <div class="brand-wrap">
-        <!-- LOGO PAY4YOU -->
+        <!-- LOGO PAY4YOU LUXURY -->
         <img src="{{ url_for('static', filename='img/pay4you-logo-lux.png') }}"
              class="brand"
              alt="Pay4You">
@@ -37,10 +37,12 @@
         </div>
       {% endif %}
     {% endwith %}
+
     {% block content %}{% endblock %}
   </main>
 
-  <footer class="footer wrap">© 2025 Pay4You • Card digitale</footer>
+  <footer class="footer wrap">
+    © 2025 Pay4You • Card digitale
+  </footer>
 </body>
 </html>
-
