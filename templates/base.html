@@ -5,38 +5,19 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>{% block title %}Pay4You Cards{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-  <style>
-    /* mini stile base (se manca style.css) */
-    :root{color-scheme:dark;}
-    body{margin:0;background:#0b0c0f;color:#eaecef;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial;}
-    .wrap{max-width:980px;margin:0 auto;padding:20px;}
-    .topbar{background:#0f1116;border-bottom:1px solid #191c22;}
-    .brand-wrap{display:flex;align-items:center;gap:10px;}
-    .brand{height:28px}
-    nav a{color:#aab2c0;text-decoration:none;margin-left:12px}
-    .card{background:#10131a;border:1px solid #1a1f28;border-radius:14px;padding:18px}
-    .glass{box-shadow:0 10px 30px rgba(0,0,0,.35)}
-    .btn{display:inline-block;padding:10px 14px;border-radius:10px;border:1px solid #2a3140;background:#131824;color:#eaecef;text-decoration:none}
-    .btn.primary{background:#d4af37;color:#111;border-color:#d4af37}
-    .btn.danger{background:#3a1620;border-color:#6f1e2f}
-    .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-    label{display:block;margin-top:12px;margin-bottom:6px;color:#9aa3b2;font-size:.95rem}
-    input,textarea{width:100%;background:#0e1218;border:1px solid #242a36;border-radius:10px;color:#eaecef;padding:10px}
-    table{width:100%;border-collapse:collapse;background:#0e1218;border-radius:12px;overflow:hidden}
-    th,td{padding:12px;border-bottom:1px solid #1a2030}
-    .footer{color:#8e96a3;font-size:.9rem;padding:30px 20px}
-    @media (max-width:760px){.grid{grid-template-columns:1fr}}
-  </style>
 </head>
-<body>
+<body class="lux">
   <header class="topbar">
-    <div class="wrap" style="display:flex;align-items:center;justify-content:space-between;">
+    <div class="wrap topbar-inner">
       <div class="brand-wrap">
-        <!-- LOGO PAY4YOU -->
-        <img src="{{ url_for('static', filename='img/pay4you-logo-lux.png') }}" class="brand" alt="Pay4You">
-        <strong>Cards</strong>
+        <img src="{{ url_for('static', filename='img/pay4you-logo-lux.png') }}"
+             class="brand" alt="Pay4You">
+        <div class="brand-text">
+          <span class="brand-main">PAY4YOU</span>
+          <span class="brand-sub">Cards</span>
+        </div>
       </div>
-      <nav>
+      <nav class="nav-links">
         {% if session.get('admin') %}
           <a href="{{ url_for('admin_home') }}">Dashboard</a>
           <a href="{{ url_for('logout') }}">Logout</a>
@@ -46,7 +27,13 @@
       </nav>
     </div>
   </header>
-  <main class="wrap">{% block content %}{% endblock %}</main>
-  <footer class="footer wrap">© 2025 Pay4You • Card digitale</footer>
+
+  <main class="wrap main-wrap">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="footer wrap">
+    © 2025 Pay4You • Card digitale
+  </footer>
 </body>
 </html>
