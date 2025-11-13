@@ -9,11 +9,15 @@
 <div class="alert">{{ error }}</div>
 {% endif %}
 
-<form method="post" enctype="multipart/form-data" class="card glass">
+<form method="post" enctype="multipart/form-data" class="card glass agent-form">
 
   <h3>Dati principali</h3>
+
   <label>Slug (per URL)</label>
-  <input name="slug" value="{{ agent.slug if agent else '' }}" required {% if agent %}readonly{% endif %}>
+  <input name="slug"
+         value="{{ agent.slug if agent else '' }}"
+         {% if agent %}readonly{% endif %}
+         required>
 
   <label>Nome completo</label>
   <input name="name" value="{{ agent.name if agent else '' }}" required>
@@ -25,7 +29,7 @@
   <input name="role" value="{{ agent.role if agent else '' }}">
 
   <label>Descrizione / Bio</label>
-  <textarea name="bio" rows="4">{{ agent.bio if agent else '' }}</textarea>
+  <textarea name="bio" rows="3">{{ agent.bio if agent else '' }}</textarea>
 
   <h3>Contatti</h3>
 
@@ -35,7 +39,7 @@
   <label>Telefono ufficio</label>
   <input name="phone_office" value="{{ agent.phone_office if agent else '' }}">
 
-  <label>Mail (separa con virgola)</label>
+  <label>Email (separa con virgola)</label>
   <input name="emails" value="{{ agent.emails if agent else '' }}">
 
   <label>Siti web (separa con virgola)</label>
