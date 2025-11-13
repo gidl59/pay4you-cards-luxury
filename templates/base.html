@@ -8,16 +8,15 @@
 </head>
 <body class="lux">
   <header class="topbar">
-    <div class="wrap topbar-inner">
+    <div class="wrap">
       <div class="brand-wrap">
+        <!-- LOGO PAY4YOU -->
         <img src="{{ url_for('static', filename='img/pay4you-logo-lux.png') }}"
-             class="brand" alt="Pay4You">
-        <div class="brand-text">
-          <span class="brand-main">PAY4YOU</span>
-          <span class="brand-sub">Cards</span>
-        </div>
+             class="brand"
+             alt="Pay4You">
+        <strong>Cards</strong>
       </div>
-      <nav class="nav-links">
+      <nav>
         {% if session.get('admin') %}
           <a href="{{ url_for('admin_home') }}">Dashboard</a>
           <a href="{{ url_for('logout') }}">Logout</a>
@@ -28,12 +27,20 @@
     </div>
   </header>
 
-  <main class="wrap main-wrap">
+  <main class="wrap">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="flash-area">
+          {% for category, msg in messages %}
+            <div class="flash {{ category }}">{{ msg }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
     {% block content %}{% endblock %}
   </main>
 
-  <footer class="footer wrap">
-    © 2025 Pay4You • Card digitale
-  </footer>
+  <footer class="footer wrap">© 2025 Pay4You • Card digitale</footer>
 </body>
 </html>
+
