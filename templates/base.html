@@ -2,47 +2,46 @@
 <html lang="it">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
   <title>{% block title %}Pay4You Cards{% endblock %}</title>
 
-  <!-- CSS principale -->
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 
-  <!-- Logo rotazione 3D -->
-  <style>
-    @keyframes spin3d {
-      0% { transform: rotateY(0deg); }
-      100% { transform: rotateY(360deg); }
-    }
-  </style>
+  <!-- FONT -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
 </head>
 
 <body class="lux">
 
-<header class="wallet-header">
-  <div class="wallet-logo">
-    <img src="{{ url_for('static', filename='img/pay4you-logo-lux.png') }}"
-         alt="Pay4You" class="logo-spin">
+<header class="topbar">
+  <div class="wrap topbar-flex">
+
+    <!-- LOGO PAY4YOU -->
+    <div class="brand-wrap">
+      <img src="{{ url_for('static', filename='img/pay4you-logo-lux.png') }}"
+           class="brand" alt="Pay4You">
+      <strong>Cards</strong>
+    </div>
+
+    <nav>
+      {% if session.get('admin') %}
+        <a href="{{ url_for('admin_home') }}">Dashboard</a>
+        <a href="{{ url_for('logout') }}">Logout</a>
+      {% else %}
+        <a href="{{ url_for('login') }}">Login</a>
+      {% endif %}
+    </nav>
+
   </div>
-
-  <div class="wallet-title">Pay4You • Digital Card</div>
-
-  <nav class="wallet-nav">
-    {% if session.get('admin') %}
-      <a href="{{ url_for('admin_list') }}">Dashboard</a>
-      <a href="{{ url_for('logout') }}">Logout</a>
-    {% else %}
-      <a href="{{ url_for('login') }}">Login</a>
-    {% endif %}
-  </nav>
 </header>
 
-<main class="wrap">
+<main class="wrap mainpad">
   {% block content %}{% endblock %}
 </main>
 
 <footer class="footer wrap">
-  © 2025 Pay4You • Luxury Digital Card
+  © 2025 Pay4You • Card digitale
 </footer>
 
 </body>
