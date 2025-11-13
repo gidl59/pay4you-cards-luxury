@@ -4,18 +4,16 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>{% block title %}Pay4You Cards{% endblock %}</title>
+
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body class="lux">
-  <header class="topbar">
-    <div class="wrap">
-      <div class="brand-wrap">
-        <!-- LOGO PAY4YOU LUXURY -->
-        <img src="{{ url_for('static', filename='img/pay4you-logo-lux.png') }}"
-             class="brand"
-             alt="Pay4You">
-        <strong>Cards</strong>
-      </div>
+
+<header class="topbar">
+  <div class="wrap top-flex">
+      <img src="{{ url_for('static', filename='img/pay4you-logo-lux.png') }}" class="brand-logo">
+      <strong class="brand-title">Pay4You • Cards</strong>
+
       <nav>
         {% if session.get('admin') %}
           <a href="{{ url_for('admin_home') }}">Dashboard</a>
@@ -24,25 +22,16 @@
           <a href="{{ url_for('login') }}">Login</a>
         {% endif %}
       </nav>
-    </div>
-  </header>
+  </div>
+</header>
 
-  <main class="wrap">
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        <div class="flash-area">
-          {% for category, msg in messages %}
-            <div class="flash {{ category }}">{{ msg }}</div>
-          {% endfor %}
-        </div>
-      {% endif %}
-    {% endwith %}
+<main class="wrap">
+  {% block content %}{% endblock %}
+</main>
 
-    {% block content %}{% endblock %}
-  </main>
+<footer class="footer wrap">
+  © 2025 Pay4You • Card digitale
+</footer>
 
-  <footer class="footer wrap">
-    © 2025 Pay4You • Card digitale
-  </footer>
 </body>
 </html>
