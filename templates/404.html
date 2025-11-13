@@ -1,8 +1,11 @@
 {% extends "base.html" %}
 {% block title %}Pagina non trovata{% endblock %}
 {% block content %}
-<div class="card glass center">
+
+<div class="card glass center" style="padding:40px;">
   <h2>Pagina non trovata</h2>
-  <a class="btn" href="/">Torna alla Home</a>
+  <p>Lo slug inserito non corrisponde a nessuna card.</p>
+  <a class="btn" href="{{ url_for('login') }}">Torna al login</a>
 </div>
+
 {% endblock %}
