@@ -1,160 +1,48 @@
 {% extends "base.html" %}
-{% block title %}{{ agent.name }} - Card{% endblock %}
+{% block title %}{{ a.name }}{% endblock %}
+
 {% block content %}
-<div class="card glass card-public">
 
-  <div class="card-header">
-    {% if agent.photo_url %}
-      <img src="{{ agent.photo_url }}" alt="{{ agent.name }}" class="avatar">
-    {% endif %}
-    <div class="card-header-text">
-      <h1>{{ agent.name }}</h1>
-      {% if agent.company %}
-        <div class="company">{{ agent.company }}</div>
-      {% endif %}
-      {% if agent.role %}
-        <div class="role">{{ agent.role }}</div>
-      {% endif %}
-      {% if agent.bio %}
-        <p class="bio">{{ agent.bio }}</p>
-      {% endif %}
-    </div>
+<div class="card agent-profile">
+
+  <div class="profile-photo">
+    <img src="{{ a.photo or url_for('static', filename='img/avatar-default.png') }}">
   </div>
 
-  <div class="actions-row">
-    {% if agent.phone_mobile %}
-      <a class="btn primary wide"
-         href="tel:{{ agent.phone_mobile|replace(' ','') }}">
-        📞 Chiama
-      </a>
+  <h2>{{ a.name }}</h2>
+
+  {% if a.company %}<p>{{ a.company }}</p>{% endif %}
+  {% if a.role %}<p>{{ a.role }}</p>{% endif %}
+  {% if a.bio %}<p>{{ a.bio }}</p>{% endif %}
+
+  <div class="btn-group">
+    {% if a.phone_mobile %}
+      <a class="btn call" href="tel:{{ a.phone_mobile }}">Chiama</a>
     {% endif %}
-    {% if emails and emails[0] %}
-      <a class="btn wide"
-         href="mailto:{{ emails[0] }}">
-        ✉️ Email
-      </a>
+
+    {% if a.emails %}
+      <a class="btn mail" href="mailto:{{ a.emails.split(',')[0] }}">Email</a>
     {% endif %}
-    <a class="btn wide"
-       href="{{ url_for('vcard', slug=agent.slug) }}"
-       target="_blank" rel="noopener">
-      💾 Salva contatto
-    </a>
+
+    <a class="btn" href="/vcard/{{ a.slug }}">vCard</a>
   </div>
 
-  {% if agent.phone_office or (emails|length > 1) %}
-  <div class="extra-contacts">
-    {% if agent.phone_office %}
-      <div><strong>Ufficio:</strong>
-        <a href="tel:{{ agent.phone_office|replace(' ','') }}">
-          {{ agent.phone_office }}
-        </a>
-      </div>
-    {% endif %}
-    {% if emails|length > 1 %}
-      <div><strong>Altre email:</strong>
-        {% for e in emails[1:] %}
-          <a href="mailto:{{ e }}">{{ e }}</a>{% if not loop.last %}, {% endif %}
-        {% endfor %}
-      </div>
-    {% endif %}
-  </div>
+  {% if a.websites %}
+  <h3>Link</h3>
+  <ul>
+    {% for w in a.websites.split(',') %}
+      <li><a href="{{ w.strip() }}" target="_blank">{{ w.strip() }}</a></li>
+    {% endfor %}
+  </ul>
   {% endif %}
 
-  {% if addresses %}
-  <div class="section">
-    <h3>Indirizzi</h3>
-    <ul>
-      {% for addr in addresses %}
-        <li>{{ addr }}</li>
-      {% endfor %}
-    </ul>
-  </div>
-  {% endif %}
-
-  {% if websites or agent.facebook or agent.instagram or agent.linkedin
-        or agent.tiktok or agent.telegram or agent.whatsapp %}
-  <div class="section">
-    <h3>Link</h3>
-    <ul class="link-list">
-      {% for site in websites %}
-        {% set url = site %}
-        {% if not url.startswith('http') %}
-          {% set url = 'https://' + url %}
-        {% endif %}
-        <li><a href="{{ url }}" target="_blank" rel="noopener">{{ site }}</a></li>
-      {% endfor %}
-
-      {% if agent.facebook %}
-        <li><a href="{{ agent.facebook }}" target="_blank" rel="noopener">Facebook</a></li>
-      {% endif %}
-      {% if agent.instagram %}
-        <li><a href="{{ agent.instagram }}" target="_blank" rel="noopener">Instagram</a></li>
-      {% endif %}
-      {% if agent.linkedin %}
-        <li><a href="{{ agent.linkedin }}" target="_blank" rel="noopener">LinkedIn</a></li>
-      {% endif %}
-      {% if agent.tiktok %}
-        <li><a href="{{ agent.tiktok }}" target="_blank" rel="noopener">TikTok</a></li>
-      {% endif %}
-      {% if agent.telegram %}
-        <li><a href="{{ agent.telegram }}" target="_blank" rel="noopener">Telegram</a></li>
-      {% endif %}
-      {% if agent.whatsapp %}
-        {% set wa = agent.whatsapp %}
-        {% if not wa.startswith('http') %}
-          {% set wa = 'https://wa.me/' + wa %}
-        {% endif %}
-        <li><a href="{{ wa }}" target="_blank" rel="noopener">WhatsApp</a></li>
-      {% endif %}
-    </ul>
-  </div>
-  {% endif %}
-
-  {% if agent.pec or agent.piva or agent.sdi %}
-  <div class="section">
-    <h3>Dati fiscali</h3>
-    <ul>
-      {% if agent.pec %}<li><strong>PEC:</strong> {{ agent.pec }}</li>{% endif %}
-      {% if agent.piva %}<li><strong>P.IVA:</strong> {{ agent.piva }}</li>{% endif %}
-      {% if agent.sdi %}<li><strong>SDI:</strong> {{ agent.sdi }}</li>{% endif %}
-    </ul>
-  </div>
-  {% endif %}
-
-  {% if agent.pdf1_url or agent.pdf2_url %}
-  <div class="section">
-    <h3>Documenti</h3>
-    <div class="actions-row">
-      {% if agent.pdf1_url %}
-        <a class="btn wide"
-           href="{{ agent.pdf1_url }}"
-           target="_blank" rel="noopener">
-          PDF 1
-        </a>
-      {% endif %}
-      {% if agent.pdf2_url %}
-        <a class="btn wide"
-           href="{{ agent.pdf2_url }}"
-           target="_blank" rel="noopener">
-          PDF 2
-        </a>
-      {% endif %}
-    </div>
-  </div>
-  {% endif %}
-
-  {% if gallery %}
-  <div class="section">
+  {% if a.gallery %}
     <h3>Galleria</h3>
-    <div class="gallery-grid">
-      {% for img in gallery %}
-        <figure class="gallery-item">
-          <img src="{{ img }}" alt="Foto {{ loop.index }}">
-        </figure>
+    <div class="gallery">
+      {% for g in a.gallery %}
+        <img src="{{ g }}">
       {% endfor %}
     </div>
-  </div>
   {% endif %}
 
-</div>
 {% endblock %}
