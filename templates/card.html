@@ -1,59 +1,65 @@
 {% extends "base.html" %}
 {% block title %}{{ agent.name }}{% endblock %}
+
 {% block content %}
 
-<div class="wallet-card">
+<div class="lux-card">
 
-  <div class="wallet-top">
-    <img src="{{ url_for('static', filename='img/pay4you-logo-lux.png') }}" class="wallet-logo-big">
+  <!-- FOTO PROFILO -->
+  <div class="profile-photo">
+    {% if agent.photo %}
+      <img src="{{ url_for('static', filename=agent.photo) }}" alt="Foto profilo">
+    {% else %}
+      <img src="{{ url_for('static', filename='img/avatar-default.png') }}">
+    {% endif %}
   </div>
 
-  <div class="wallet-profile">
-    <img src="{{ agent.photo_url if agent.photo_url else url_for('static', filename='img/avatar-default.png') }}"
-         class="profile-photo">
-  </div>
+  <h1>{{ agent.name }}</h1>
 
-  <h2 class="wallet-name">{{ agent.name }}</h2>
-  <p class="wallet-role">{{ agent.role }}</p>
+  <p class="role">{{ agent.company }}</p>
+  <p class="role">{{ agent.role }}</p>
 
-  <p class="wallet-company">{{ agent.company }}</p>
-
-  <div class="wallet-actions">
+  <div class="actions">
 
     {% if agent.phone_mobile %}
-      <a class="btn call" href="tel:{{ agent.phone_mobile }}">Chiama</a>
+    <a class="btn full" href="tel:{{ agent.phone_mobile }}">📱 Chiama</a>
     {% endif %}
 
-    {% if agent.whatsapp %}
-      <a class="btn whats" href="https://wa.me/{{ agent.whatsapp }}">WhatsApp</a>
+    {% if agent.emails %}
+    <a class="btn full" href="mailto:{{ agent.emails.split(',')[0] }}">✉️ Email</a>
     {% endif %}
 
-    <a class="btn save" href="{{ url_for('vcard', slug=agent.slug) }}">Salva contatto</a>
-
+    <a class="btn full" href="{{ url_for('vcard', slug=agent.slug) }}">⬇️ vCard</a>
   </div>
 
-  {% if agent.bio %}
-  <div class="wallet-bio">{{ agent.bio }}</div>
+  <hr>
+
+  <h3>Link</h3>
+  {% if agent.websites %}
+    <ul>
+    {% for w in agent.websites.split(',') %}
+      <li><a href="{{ w.strip() }}" target="_blank">{{ w.strip() }}</a></li>
+    {% endfor %}
+    </ul>
   {% endif %}
 
-  {% if agent.gallery %}
   <h3>Galleria</h3>
+
   <div class="gallery">
-    {% for img in agent.gallery %}
-      <img src="{{ img }}">
+    {% for g in agent.gallery %}
+      <img src="{{ url_for('static', filename=g) }}">
     {% endfor %}
   </div>
+
+  {% if agent.pdf1 %}
+    <h3>Documenti</h3>
+    <a class="btn full" target="_blank"
+       href="{{ url_for('static', filename=agent.pdf1) }}">PDF 1</a>
   {% endif %}
 
-  {% if agent.pdf1 or agent.pdf2 or agent.pdf3 or agent.pdf4 %}
-  <h3>Documenti</h3>
-  <div class="pdf-list">
-    {% for idx in ['pdf1','pdf2','pdf3','pdf4'] %}
-      {% if attribute(agent, idx) %}
-      <a class="pdf-item" href="{{ attribute(agent, idx) }}" target="_blank">PDF</a>
-      {% endif %}
-    {% endfor %}
-  </div>
+  {% if agent.pdf2 %}
+    <a class="btn full" target="_blank"
+       href="{{ url_for('static', filename=agent.pdf2) }}">PDF 2</a>
   {% endif %}
 
 </div>
