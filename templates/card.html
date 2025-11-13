@@ -5,116 +5,117 @@
 
 <div class="card-container">
 
-    <!-- LOGO 3D ANIMATO -->
-    <div class="logo-3d-wrap">
-        <img src="{{ url_for('static', filename='img/pay4you-logo-lux.png') }}" class="logo-3d" alt="Pay4You">
-    </div>
+  <!-- LOGO 3D -->
+  <div class="logo-3d-wrap">
+    <img src="{{ url_for('static', filename='img/pay4you-logo-lux.png') }}" class="logo-3d" alt="Pay4You">
+  </div>
 
-    <!-- FOTO PROFILO -->
-    <div class="profile-pic-wrap">
-        {% if agent.photo %}
-        <img src="{{ agent.photo }}" class="profile-pic" alt="Foto profilo">
-        {% else %}
-        <div class="profile-placeholder"></div>
-        {% endif %}
-    </div>
+  <!-- FOTO PROFILO -->
+  <div class="profile-pic-wrap">
+    {% if agent.photo %}
+      <img src="{{ url_for('static', filename=agent.photo) }}" class="profile-pic" alt="Foto profilo">
+    {% else %}
+      <div class="profile-placeholder"></div>
+    {% endif %}
+  </div>
 
-    <!-- NOME & RUOLO -->
-    <h1 class="agent-name">{{ agent.name }}</h1>
+  <!-- NOME & RUOLO -->
+  <h1 class="agent-name">{{ agent.name }}</h1>
+
+  {% if agent.company %}
+    <h2 class="agent-role">{{ agent.company }}</h2>
+  {% endif %}
+
+  {% if agent.role %}
     <h2 class="agent-role">{{ agent.role }}</h2>
+  {% endif %}
 
-    <!-- DESCRIZIONE -->
-    {% if agent.bio %}
-    <p class="agent-bio">{{ agent.bio }}</p>
+  <!-- BIO -->
+  {% if agent.bio %}
+  <p class="agent-bio">{{ agent.bio }}</p>
+  {% endif %}
+
+  <!-- CONTATTI -->
+  <div class="section">
+    <h3>Contatti</h3>
+
+    {% if agent.phone_mobile %}
+      <a class="btn full" href="tel:{{ agent.phone_mobile }}">📱 Chiama mobile</a>
     {% endif %}
 
-    <!-- CONTATTI -->
-    <div class="section">
-        <h3>Contatti</h3>
-
-        {% if agent.phone_mobile %}
-        <a class="btn full" href="tel:{{ agent.phone_mobile }}">📞 Chiama Mobile</a>
-        {% endif %}
-
-        {% if agent.phone_office %}
-        <a class="btn full" href="tel:{{ agent.phone_office }}">☎️ Chiama Ufficio</a>
-        {% endif %}
-
-        {% if agent.emails %}
-        {% for email in agent.emails.split(',') %}
-        <a class="btn full" href="mailto:{{ email|trim }}">✉️ Email: {{ email|trim }}</a>
-        {% endfor %}
-        {% endif %}
-
-        {% if agent.websites %}
-        {% for site in agent.websites.split(',') %}
-        <a class="btn full" target="_blank" href="{{ site|trim }}">🌐 Visita sito</a>
-        {% endfor %}
-        {% endif %}
-    </div>
-
-    <!-- SOCIAL -->
-    <div class="section">
-        <h3>Social</h3>
-
-        <div class="social-row">
-
-            {% if agent.facebook %}
-            <a href="{{ agent.facebook }}" target="_blank" class="social-btn fb">Facebook</a>
-            {% endif %}
-
-            {% if agent.instagram %}
-            <a href="{{ agent.instagram }}" target="_blank" class="social-btn ig">Instagram</a>
-            {% endif %}
-
-            {% if agent.linkedin %}
-            <a href="{{ agent.linkedin }}" target="_blank" class="social-btn in">LinkedIn</a>
-            {% endif %}
-
-            {% if agent.tiktok %}
-            <a href="{{ agent.tiktok }}" target="_blank" class="social-btn tt">TikTok</a>
-            {% endif %}
-
-            {% if agent.telegram %}
-            <a href="{{ agent.telegram }}" target="_blank" class="social-btn tg">Telegram</a>
-            {% endif %}
-
-        </div>
-    </div>
-
-    <!-- DOCUMENTI -->
-    {% if agent.pdf1 or agent.pdf2 %}
-    <div class="section">
-        <h3>Documenti</h3>
-
-        {% if agent.pdf1 %}
-        <a class="btn full" target="_blank" href="{{ agent.pdf1 }}">📄 PDF 1</a>
-        {% endif %}
-        {% if agent.pdf2 %}
-        <a class="btn full" target="_blank" href="{{ agent.pdf2 }}">📄 PDF 2</a>
-        {% endif %}
-
-    </div>
+    {% if agent.phone_office %}
+      <a class="btn full" href="tel:{{ agent.phone_office }}">☎️ Chiama ufficio</a>
     {% endif %}
 
-    <!-- GALLERIA FOTO -->
-    {% if agent.gallery %}
-    <div class="section">
-        <h3>Galleria</h3>
-
-        <div class="gallery-grid">
-            {% for photo in agent.gallery %}
-            <img src="{{ photo }}" class="gallery-img">
-            {% endfor %}
-        </div>
-    </div>
+    {% if agent.emails %}
+      {% for email in agent.emails.split(',') %}
+      <a class="btn full" href="mailto:{{ email|trim }}">✉️ {{ email|trim }}</a>
+      {% endfor %}
     {% endif %}
 
-    <!-- SALVA CONTATTO (iPhone + Android) -->
-    <div class="section">
-        <h3>Salva contatto</h3>
-        <a class="btn full green" href="{{ url_for('vcard', slug=agent.slug) }}">💾 Salva Contatto (VCF)</a>
+    {% if agent.websites %}
+      {% for site in agent.websites.split(',') %}
+      <a class="btn full" target="_blank" href="{{ site|trim }}">🌐 {{ site|trim }}</a>
+      {% endfor %}
+    {% endif %}
+  </div>
+
+  <!-- SOCIAL -->
+  {% if agent.facebook or agent.instagram or agent.linkedin or agent.tiktok or agent.telegram %}
+  <div class="section">
+    <h3>Social</h3>
+    <div class="social-row">
+      {% if agent.facebook %}
+        <a href="{{ agent.facebook }}" target="_blank" class="social-btn fb">Facebook</a>
+      {% endif %}
+      {% if agent.instagram %}
+        <a href="{{ agent.instagram }}" target="_blank" class="social-btn ig">Instagram</a>
+      {% endif %}
+      {% if agent.linkedin %}
+        <a href="{{ agent.linkedin }}" target="_blank" class="social-btn in">LinkedIn</a>
+      {% endif %}
+      {% if agent.tiktok %}
+        <a href="{{ agent.tiktok }}" target="_blank" class="social-btn tt">TikTok</a>
+      {% endif %}
+      {% if agent.telegram %}
+        <a href="{{ agent.telegram }}" target="_blank" class="social-btn tg">Telegram</a>
+      {% endif %}
     </div>
+  </div>
+  {% endif %}
+
+  <!-- DOCUMENTI -->
+  {% if agent.pdf1 or agent.pdf2 %}
+  <div class="section">
+    <h3>Documenti</h3>
+
+    {% if agent.pdf1 %}
+      <a class="btn full" target="_blank" href="{{ url_for('static', filename=agent.pdf1) }}">📄 PDF 1</a>
+    {% endif %}
+    {% if agent.pdf2 %}
+      <a class="btn full" target="_blank" href="{{ url_for('static', filename=agent.pdf2) }}">📄 PDF 2</a>
+    {% endif %}
+
+  </div>
+  {% endif %}
+
+  <!-- GALLERIA -->
+  {% if agent.gallery %}
+  <div class="section">
+    <h3>Galleria</h3>
+    <div class="gallery-grid">
+      {% for photo in agent.gallery %}
+        <img src="{{ url_for('static', filename=photo) }}" class="gallery-img">
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- SALVA CONTATTO -->
+  <div class="section">
+    <h3>Salva contatto</h3>
+    <a class="btn full green" href="{{ url_for('vcard', slug=agent.slug) }}">💾 Salva contatto (VCF)</a>
+  </div>
 
 </div>
 
