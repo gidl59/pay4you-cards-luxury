@@ -1,55 +1,338 @@
-:root{
-  --bg:#0c0c0f;
-  --panel:#111218cc;
-  --gold:#d4af37;
-  --gold-2:#b9962b;
-  --ink:#f4f4f6;
-  --muted:#c8c8cc;
-  --accent:#0a2a66;
+/* Layout generale --------------------------------------------------------- */
+body.lux {
+  margin: 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: radial-gradient(circle at top, #1d2330 0, #05060a 55%, #000000 100%);
+  color: #f5f5f5;
 }
-*{box-sizing:border-box}
-html,body{margin:0;padding:0}
-body.lux{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial;background:radial-gradient(1200px 800px at 20% -10%, #1a1b20 0%, #0b0b0e 60%, #08080a 100%);color:var(--ink)}
 
-.wrap{max-width:980px;margin:0 auto;padding:16px}
-.topbar{background:linear-gradient(180deg,#0f1014 0%, #0b0c10 100%);border-bottom:1px solid #1b1b22;position:sticky;top:0;backdrop-filter:blur(8px);z-index:5}
-.topbar .brand-wrap{display:flex;align-items:center;gap:12px;font-size:18px}
-.brand{height:44px;width:auto;filter:drop-shadow(0 2px 10px rgba(0,0,0,.35))}
-nav a{color:var(--ink);margin-left:16px;text-decoration:none;opacity:.85}
-nav a:hover{opacity:1;text-decoration:underline}
+.wrap {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
 
-.card{background:var(--panel);border:1px solid #1f2028;border-radius:16px;padding:16px;box-shadow:0 8px 40px rgba(0,0,0,.35)}
-.glass{backdrop-filter: blur(10px) saturate(120%);background:linear-gradient(180deg, rgba(17,18,24,.75), rgba(17,18,24,.55));border:1px solid #242634}
+.main-wrap {
+  padding: 96px 16px 48px;
+}
 
-.table{width:100%;border-collapse:collapse}
-.table th,.table td{padding:12px;border-bottom:1px solid #242634}
-.table tr:hover td{background:rgba(255,255,255,.02)}
+/* Topbar ------------------------------------------------------------------ */
+.topbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  backdrop-filter: blur(12px);
+  background: rgba(4, 6, 13, 0.92);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  z-index: 50;
+}
 
-.btn{display:inline-block;padding:10px 14px;border:1px solid #303246;border-radius:12px;text-decoration:none;color:var(--ink);background:#14151b;transition:.2s ease;box-shadow:0 1px 0 rgba(255,255,255,.06) inset}
-.btn:hover{transform:translateY(-1px)}
-.btn.primary{background:linear-gradient(180deg,var(--gold) 0%, var(--gold-2) 100%);border-color:var(--gold-2);color:#0a0a0a;font-weight:700}
-.btn.outline{border-color:var(--gold-2);color:var(--gold);background:transparent}
-.btn.danger{border-color:#6b2a2a;background:#2a1313;color:#fbdcdc}
+.topbar-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+}
 
-form label{display:block;margin-top:10px;font-weight:600;color:var(--muted)}
-form input, textarea{width:100%;padding:12px;border:1px solid #2a2d3f;border-radius:10px;margin-top:6px;background:#12131a;color:var(--ink)}
-h1,h2,h3{letter-spacing:.3px}
-h3{margin-top:22px}
+.brand-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
 
-.cardh{display:flex;gap:18px;border-radius:18px;border:1px solid #23242f;padding:18px;background:linear-gradient(180deg, rgba(20,21,28,.75), rgba(12,13,18,.6));box-shadow:0 12px 60px rgba(0,0,0,.5)}
-.avatar-wrap{width:150px;height:150px;border-radius:9999px;border:2px solid var(--gold);overflow:hidden;display:flex;align-items:center;justify-content:center;background:#0d0e12}
-.avatar{width:100%;height:100%;object-fit:cover;object-position:center}
-.role{color:var(--muted);margin-top:-4px}
-.muted{color:var(--muted)}
-.actions{margin-top:12px}
-.cols{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.brand {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+}
 
-.list{padding-left:18px}
-.list li{margin:6px 0}
+.brand-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+}
 
-.gallery{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
-.gallery img{width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:14px;background:#0e0f14;border:1px solid #26283a;box-shadow:0 2px 14px rgba(0,0,0,.3)}
+.brand-main {
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  font-size: 13px;
+}
 
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-@media (min-width:980px){.gallery{grid-template-columns:repeat(4,1fr)}}
-@media (max-width:720px){.cardh{flex-direction:column;align-items:center;text-align:center}.cols,.grid{grid-template-columns:1fr}}
+.brand-sub {
+  font-size: 11px;
+  opacity: 0.75;
+}
+
+.nav-links a {
+  margin-left: 16px;
+  color: #f5f5f5;
+  text-decoration: none;
+  font-size: 14px;
+  opacity: 0.8;
+}
+
+.nav-links a:hover {
+  opacity: 1;
+}
+
+/* Card & componenti ------------------------------------------------------- */
+.card {
+  background: radial-gradient(circle at top left, #252b3d 0, #12141e 45%, #090a11 100%);
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: 0 18px 40px rgba(0,0,0,0.7);
+  border: 1px solid rgba(255,255,255,0.05);
+  margin-bottom: 24px;
+}
+
+.glass {
+  background: radial-gradient(circle at top left, rgba(39, 48, 77, 0.94), rgba(8, 10, 19, 0.96));
+}
+
+.max-600 {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+h1, h2, h3 {
+  margin-top: 0;
+  font-weight: 600;
+}
+
+/* Form -------------------------------------------------------------------- */
+label {
+  display: block;
+  font-size: 13px;
+  margin: 10px 0 4px;
+  opacity: 0.8;
+}
+
+input[type="text"],
+input[type="password"],
+input[type="url"],
+textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(5,7,15,0.9);
+  color: #f5f5f5;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+textarea {
+  resize: vertical;
+}
+
+/* Bottoni ----------------------------------------------------------------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 9px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.18);
+  background: rgba(13,16,29,0.9);
+  color: #f5f5f5;
+  font-size: 14px;
+  text-decoration: none;
+  cursor: pointer;
+  margin: 6px 4px 0 0;
+}
+
+.btn.primary {
+  background: linear-gradient(135deg, #f3c14b, #f08d1b);
+  color: #0a0905;
+  border-color: transparent;
+  font-weight: 600;
+}
+
+.btn.danger {
+  background: linear-gradient(135deg, #ff6a6a, #c62828);
+  border-color: transparent;
+}
+
+.btn.wide {
+  flex: 1 1 0;
+}
+
+.btn:hover {
+  filter: brightness(1.05);
+}
+
+/* Tabelle ----------------------------------------------------------------- */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  margin-top: 12px;
+}
+
+.table th,
+.table td {
+  padding: 8px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+.table th {
+  text-align: left;
+  opacity: 0.8;
+  font-weight: 500;
+}
+
+.table tr:last-child td {
+  border-bottom: none;
+}
+
+.table .actions {
+  white-space: nowrap;
+}
+
+.table .actions form {
+  display: inline;
+}
+
+/* Griglie ----------------------------------------------------------------- */
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+@media (max-width: 640px) {
+  .topbar-inner {
+    flex-direction: row;
+  }
+}
+
+/* Card pubblica ----------------------------------------------------------- */
+.card-public {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.card-header {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.card-header-text h1 {
+  margin-bottom: 4px;
+  font-size: 22px;
+}
+
+.card-header-text .company {
+  font-size: 14px;
+  opacity: 0.85;
+}
+
+.card-header-text .role {
+  font-size: 13px;
+  opacity: 0.8;
+  margin-bottom: 4px;
+}
+
+.bio {
+  font-size: 13px;
+  opacity: 0.85;
+}
+
+/* Avatar tondo, centrato e ritagliato */
+.avatar {
+  width: 130px;
+  height: 130px;
+  border-radius: 999px;
+  object-fit: cover;
+  object-position: center;
+  border: 2px solid rgba(255,255,255,0.15);
+}
+
+/* Azioni principali su card ----------------------------------------------- */
+.actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.extra-contacts {
+  font-size: 13px;
+  opacity: 0.9;
+  margin-bottom: 12px;
+}
+
+.extra-contacts a {
+  color: #ffd876;
+  text-decoration: none;
+}
+
+/* Sezioni card ------------------------------------------------------------ */
+.section {
+  margin-top: 18px;
+}
+
+.section h3 {
+  font-size: 15px;
+  margin-bottom: 8px;
+}
+
+.section ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.section ul li {
+  margin-bottom: 4px;
+}
+
+/* Link list --------------------------------------------------------------- */
+.link-list li {
+  margin-bottom: 4px;
+}
+
+.link-list a {
+  color: #9fd3ff;
+  text-decoration: none;
+}
+
+.link-list a:hover {
+  text-decoration: underline;
+}
+
+/* Galleria ---------------------------------------------------------------- */
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 8px;
+}
+
+.gallery-item {
+  border-radius: 14px;
+  overflow: hidden;
+  background: #05060b;
+  aspect-ratio: 4 / 3;
+}
+
+.gallery-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Footer ------------------------------------------------------------------ */
+.footer {
+  font-size: 12px;
+  opacity: 0.6;
+  padding-bottom: 24px;
+}
+
+/* Errori ------------------------------------------------------------------ */
+.error {
+  color: #ff9292;
+  font-size: 14px;
+}
