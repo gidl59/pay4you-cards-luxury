@@ -1,146 +1,515 @@
-{% extends "base.html" %}
-{% block title %}{{ agent.name }}{% endblock %}
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <title>Card Digitale</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-{% block content %}
+  <!-- NESSUN HTTPS FORZATO: il file funziona sia in http che in https -->
+  <style>
+    :root {
+      --primary: #f4c400; /* giallo logo */
+      --text-dark: #222;
+      --text-muted: #666;
+      --bg: #f5f5f7;
+      --card-bg: #ffffff;
+      --border-radius: 18px;
+    }
 
-<div class="card-container">
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+        Roboto, sans-serif;
+    }
 
-  <!-- LOGO 3D -->
-  <div class="logo-3d-wrap">
-    <img src="{{ url_for('static', filename='img/pay4you-logo-lux.png') }}" class="logo-3d" alt="Pay4You">
-  </div>
+    body {
+      background: var(--bg);
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 100vh;
+      padding: 24px 12px;
+    }
 
-  <!-- FOTO PROFILO -->
-  <div class="profile-pic-wrap">
-    {% if agent.photo %}
-      <img src="{{ url_for('static', filename=agent.photo) }}" class="profile-pic" alt="Foto profilo">
-    {% else %}
-      <div class="profile-placeholder"></div>
-    {% endif %}
-  </div>
+    .wrapper {
+      width: 100%;
+      max-width: 420px;
+    }
 
-  <!-- NOME & RUOLO -->
-  <h1 class="agent-name">{{ agent.name }}</h1>
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 12px;
+      text-decoration: none;
+      color: var(--text-muted);
+      font-size: 14px;
+    }
 
-  {% if agent.company %}
-    <h2 class="agent-role">{{ agent.company }}</h2>
-  {% endif %}
+    .back-link span {
+      font-size: 18px;
+      line-height: 1;
+    }
 
-  {% if agent.role %}
-    <h2 class="agent-role">{{ agent.role }}</h2>
-  {% endif %}
+    .card {
+      background: var(--card-bg);
+      border-radius: 24px;
+      padding: 16px 16px 18px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+      position: relative;
+      overflow: hidden;
+    }
 
-  <!-- BIO -->
-  {% if agent.bio %}
-  <p class="agent-bio">{{ agent.bio }}</p>
-  {% endif %}
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 16px;
+    }
 
-  <!-- CONTATTI -->
-  <div class="section">
-    <h3>Contatti</h3>
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
 
-    {% if agent.phone_mobile %}
-      <a class="btn full" href="tel:{{ agent.phone_mobile }}">📱 Chiama mobile</a>
-    {% endif %}
+    .logo-mark {
+      width: 36px;
+      height: 36px;
+      border-radius: 999px;
+      background: var(--primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 18px;
+      color: #000;
+      overflow: hidden;
+    }
 
-    {% if agent.phone_office %}
-      <a class="btn full" href="tel:{{ agent.phone_office }}">☎️ Chiama ufficio</a>
-    {% endif %}
+    .logo-mark img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
 
-    {% if agent.emails %}
-      {% for email in agent.emails.split(',') %}
-        {% if email.strip() %}
-        <a class="btn full" href="mailto:{{ email.strip() }}">✉️ {{ email.strip() }}</a>
-        {% endif %}
-      {% endfor %}
-    {% endif %}
+    .logo-text {
+      display: flex;
+      flex-direction: column;
+      font-size: 13px;
+      line-height: 1.1;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
 
-    {% if agent.websites %}
-      {% for site in agent.websites.split(',') %}
-        {% set raw = site.strip() %}
-        {% if raw %}
-          {# se non contiene :// aggiungo http:// #}
-          {% if '://' in raw %}
-            <a class="btn full" target="_blank" href="{{ raw }}">🌐 {{ raw }}</a>
-          {% else %}
-            <a class="btn full" target="_blank" href="http://{{ raw }}">🌐 {{ raw }}</a>
-          {% endif %}
-        {% endif %}
-      {% endfor %}
-    {% endif %}
-  </div>
+    .logo-text span:nth-child(2) {
+      margin-left: 2px;
+    }
 
-  <!-- INDIRIZZI -->
-  {% if agent.addresses %}
-  <div class="section">
-    <h3>Indirizzi</h3>
-    <ul class="addr-list">
-      {% for riga in agent.addresses.split('\n') %}
-        {% if riga.strip() %}
-        <li>{{ riga.strip() }}</li>
-        {% endif %}
-      {% endfor %}
-    </ul>
-  </div>
-  {% endif %}
+    .profile-block {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
 
-  <!-- SOCIAL -->
-  {% if agent.facebook or agent.instagram or agent.linkedin or agent.tiktok or agent.telegram %}
-  <div class="section">
-    <h3>Social</h3>
-    <div class="social-row">
-      {% if agent.facebook %}
-        <a href="{{ agent.facebook }}" target="_blank" class="social-btn fb">Facebook</a>
-      {% endif %}
-      {% if agent.instagram %}
-        <a href="{{ agent.instagram }}" target="_blank" class="social-btn ig">Instagram</a>
-      {% endif %}
-      {% if agent.linkedin %}
-        <a href="{{ agent.linkedin }}" target="_blank" class="social-btn in">LinkedIn</a>
-      {% endif %}
-      {% if agent.tiktok %}
-        <a href="{{ agent.tiktok }}" target="_blank" class="social-btn tt">TikTok</a>
-      {% endif %}
-      {% if agent.telegram %}
-        <a href="{{ agent.telegram }}" target="_blank" class="social-btn tg">Telegram</a>
-      {% endif %}
+    .avatar-wrapper {
+      position: relative;
+      width: 70px;
+      height: 70px;
+      border-radius: 999px;
+      border: 2px solid var(--primary);
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .avatar {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center;
+      transform-origin: center center;
+      transition: transform 0.2s ease-out;
+    }
+
+    .profile-text {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      margin-left: auto;
+    }
+
+    .name-line {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--text-dark);
+      line-height: 1.1;
+      text-align: right;
+    }
+
+    .role {
+      margin-top: 4px;
+      font-size: 12px;
+      color: var(--text-muted);
+      text-align: right;
+    }
+
+    .divider {
+      margin: 12px 0 8px;
+      height: 1px;
+      background: linear-gradient(
+        to right,
+        rgba(0, 0, 0, 0.05),
+        rgba(0, 0, 0, 0.18),
+        rgba(0, 0, 0, 0.05)
+      );
+    }
+
+    .info-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--text-dark);
+      margin-bottom: 6px;
+    }
+
+    .info-label {
+      width: 22px;
+      text-align: center;
+      font-size: 15px;
+    }
+
+    .info-value {
+      flex: 1;
+      word-break: break-word;
+    }
+
+    .info-muted {
+      color: var(--text-muted);
+      font-size: 12px;
+    }
+
+    .actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .btn {
+      flex: 1;
+      border-radius: 999px;
+      border: none;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 9px 10px;
+      cursor: pointer;
+      outline: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      text-decoration: none;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #000;
+    }
+
+    .btn-outline {
+      background: transparent;
+      border: 1px solid rgba(0, 0, 0, 0.12);
+      color: var(--text-dark);
+    }
+
+    .btn-icon {
+      font-size: 15px;
+      line-height: 1;
+    }
+
+    .small {
+      font-size: 11px;
+      margin-top: 8px;
+      color: var(--text-muted);
+      text-align: center;
+    }
+
+    .panel {
+      margin-top: 14px;
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: var(--border-radius);
+      padding: 10px 12px;
+      font-size: 12px;
+      color: var(--text-muted);
+      border: 1px dashed rgba(0, 0, 0, 0.08);
+    }
+
+    .panel-title {
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: var(--text-dark);
+    }
+
+    .upload-row {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 6px;
+    }
+
+    input[type="file"] {
+      font-size: 11px;
+    }
+
+    input[type="range"] {
+      width: 100%;
+    }
+
+    .panel label {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    @media (max-width: 400px) {
+      .card {
+        padding: 14px 12px 16px;
+      }
+      .avatar-wrapper {
+        width: 62px;
+        height: 62px;
+      }
+      .name-line {
+        font-size: 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <!-- FRECCIA INDIETRO:
+         - Nel sito porta alla URL della card (metti il tuo dominio http)
+         - Nella versione PDF rimane cliccabile e riporta alla card -->
+    <a href="http://tuodominio.it/card.html" class="back-link">
+      <span>←</span> <span>Torna alla card</span>
+    </a>
+
+    <div class="card">
+      <!-- HEADER: LOGO + PROFILO -->
+      <div class="card-header">
+        <!-- LOGO GIALLO -->
+        <div class="logo">
+          <div class="logo-mark">
+            <!-- Se hai un logo PNG giallo, sostituisci la lettera con <img src="logo-giallo.png" alt="Logo" /> -->
+            P4
+          </div>
+          <div class="logo-text">
+            <span>PAY4</span>
+            <span>YOU</span>
+          </div>
+        </div>
+
+        <!-- BLOCCO FOTO + NOME SU DUE RIGHE -->
+        <div class="profile-block">
+          <div class="avatar-wrapper">
+            <img
+              id="avatarImage"
+              class="avatar"
+              src="foto-profilo.jpg"
+              alt="Foto profilo"
+            />
+          </div>
+
+          <div class="profile-text">
+            <div class="name-line" id="firstNameLine">Giuseppe</div>
+            <div class="name-line" id="lastNameLine">Di Lisio</div>
+            <div class="role" id="roleText">Consulente Pagamenti</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- INFO CONTATTO -->
+      <div class="info-row">
+        <div class="info-label">📞</div>
+        <div class="info-value" id="phoneText">+39 333 0000000</div>
+      </div>
+
+      <div class="info-row">
+        <div class="info-label">✉️</div>
+        <div class="info-value" id="emailText">nome.cognome@email.it</div>
+      </div>
+
+      <div class="info-row">
+        <div class="info-label">📍</div>
+        <div class="info-value" id="addressText">
+          Via Esempio 123, 86100 Campobasso (CB)
+        </div>
+      </div>
+
+      <div class="info-row">
+        <div class="info-label">🌐</div>
+        <div class="info-value info-muted" id="websiteText">
+          http://www.tuodominio.it
+        </div>
+      </div>
+
+      <!-- AZIONI PRINCIPALI -->
+      <div class="actions">
+        <!-- BOTTONE VCF (SALVA CONTATTO) -->
+        <button class="btn btn-primary" id="saveContactBtn">
+          <span class="btn-icon">✅</span>
+          <span>Salva contatto</span>
+        </button>
+
+        <!-- BOTTONE CHIAMATA VELOCE -->
+        <a href="tel:+393330000000" class="btn btn-outline" id="callBtn">
+          <span class="btn-icon">📲</span>
+          <span>Chiama</span>
+        </a>
+      </div>
+
+      <div class="small">
+        Se il contatto non si salva automaticamente su Android, apri il file
+        <strong>.vcf</strong> con l'app Contatti.
+      </div>
+
+      <!-- PANNELLO GESTIONE FOTO (CARICA + ZOOM) -->
+      <div class="panel">
+        <div class="panel-title">Impostazioni foto profilo</div>
+
+        <div class="upload-row">
+          <label for="photoInput">Carica nuova foto (centrata nel cerchio):</label>
+          <input type="file" id="photoInput" accept="image/*" />
+        </div>
+
+        <div class="upload-row">
+          <label for="zoomRange">Zoom foto (ingrandisci/rimpicciolisci):</label>
+          <input
+            type="range"
+            id="zoomRange"
+            min="100"
+            max="220"
+            value="100"
+          />
+        </div>
+      </div>
     </div>
   </div>
-  {% endif %}
 
-  <!-- DOCUMENTI -->
-  {% if agent.pdf1 or agent.pdf2 %}
-  <div class="section">
-    <h3>Documenti</h3>
+  <script>
+    // ==========================
+    // DATI CONTATTO (unica zona da modificare per aggiornare card + VCF)
+    // ==========================
+    const contact = {
+      firstName: "Giuseppe",
+      lastName: "Di Lisio",
+      role: "Consulente Pagamenti",
+      phone: "+39 333 0000000",
+      email: "nome.cognome@email.it",
+      address: "Via Esempio 123, 86100 Campobasso (CB)",
+      website: "http://www.tuodominio.it",
+      organization: "Pay4You",
+      title: "Consulente",
+      // Nome del file VCF che scarica il telefono
+      vcfFileName: "Giuseppe_Di_Lisio.vcf",
+    };
 
-    {% if agent.pdf1 %}
-      <a class="btn full" target="_blank" href="{{ url_for('static', filename=agent.pdf1) }}">📄 PDF 1</a>
-    {% endif %}
-    {% if agent.pdf2 %}
-      <a class="btn full" target="_blank" href="{{ url_for('static', filename=agent.pdf2) }}">📄 PDF 2</a>
-    {% endif %}
+    // ==========================
+    // POPOLA LA CARD CON I DATI SOPRA
+    // ==========================
+    document.getElementById("firstNameLine").textContent = contact.firstName;
+    document.getElementById("lastNameLine").textContent = contact.lastName;
+    document.getElementById("roleText").textContent = contact.role;
+    document.getElementById("phoneText").textContent = contact.phone;
+    document.getElementById("emailText").textContent = contact.email;
+    document.getElementById("addressText").textContent = contact.address;
+    document.getElementById("websiteText").textContent = contact.website;
+    document.getElementById("callBtn").setAttribute("href", "tel:" + contact.phone.replace(/\s+/g, ""));
 
-  </div>
-  {% endif %}
+    // ==========================
+    // GENERAZIONE VCF (compatibile Android / iOS)
+    // ==========================
+    function generateVCard(contact) {
+      // ATTENZIONE: usare \r\n per compatibilità massima
+      let vcf = "";
+      vcf += "BEGIN:VCARD\r\n";
+      vcf += "VERSION:3.0\r\n";
+      vcf += `N:${contact.lastName};${contact.firstName};;;\r\n`;
+      vcf += `FN:${contact.firstName} ${contact.lastName}\r\n`;
+      if (contact.organization) {
+        vcf += `ORG:${contact.organization}\r\n`;
+      }
+      if (contact.title) {
+        vcf += `TITLE:${contact.title}\r\n`;
+      }
+      if (contact.phone) {
+        vcf += `TEL;TYPE=CELL:${contact.phone}\r\n`;
+      }
+      if (contact.email) {
+        vcf += `EMAIL;TYPE=INTERNET:${contact.email}\r\n`;
+      }
+      if (contact.address) {
+        // Tutto l'indirizzo in un unico campo LABEL per semplicità
+        vcf += `ADR;TYPE=HOME:;;${contact.address};;;;\r\n`;
+      }
+      if (contact.website) {
+        vcf += `URL:${contact.website}\r\n`;
+      }
+      vcf += "END:VCARD\r\n";
+      return vcf;
+    }
 
-  <!-- GALLERIA -->
-  {% if agent.gallery %}
-  <div class="section">
-    <h3>Galleria</h3>
-    <div class="gallery-grid">
-      {% for photo in agent.gallery %}
-        <img src="{{ url_for('static', filename=photo) }}" class="gallery-img">
-      {% endfor %}
-    </div>
-  </div>
-  {% endif %}
+    function downloadVCard() {
+      const vcardText = generateVCard(contact);
+      const blob = new Blob([vcardText], { type: "text/vcard;charset=utf-8" });
 
-  <!-- SALVA CONTATTO -->
-  <div class="section">
-    <h3>Salva contatto</h3>
-    <a class="btn full green" href="{{ url_for('vcard', slug=agent.slug) }}">💾 Apri scheda contatto (VCF)</a>
-  </div>
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = contact.vcfFileName || "contatto.vcf";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    }
 
-</div>
+    document
+      .getElementById("saveContactBtn")
+      .addEventListener("click", downloadVCard);
 
-{% endblock %}
+    // ==========================
+    // GESTIONE FOTO PROFILO: CARICA + ZOOM
+    // ==========================
+    const photoInput = document.getElementById("photoInput");
+    const avatarImage = document.getElementById("avatarImage");
+    const zoomRange = document.getElementById("zoomRange");
+
+    // Carica immagine e la centra nel cerchio
+    photoInput.addEventListener("change", function (event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        avatarImage.src = e.target.result;
+        // Reset zoom alla base
+        zoomRange.value = 100;
+        avatarImage.style.transform = "scale(1)";
+      };
+      reader.readAsDataURL(file);
+    });
+
+    // Zoom (ingrandisce/rimpicciolisce foto, sempre centrata)
+    zoomRange.addEventListener("input", function (event) {
+      const value = Number(event.target.value);
+      const scale = value / 100;
+      avatarImage.style.transform = `scale(${scale})`;
+    });
+  </script>
+</body>
+</html>
