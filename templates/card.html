@@ -49,16 +49,34 @@
 
     {% if agent.emails %}
       {% for email in agent.emails.split(',') %}
-      <a class="btn full" href="mailto:{{ email|trim }}">✉️ {{ email|trim }}</a>
+        {% if email.strip() %}
+        <a class="btn full" href="mailto:{{ email.strip() }}">✉️ {{ email.strip() }}</a>
+        {% endif %}
       {% endfor %}
     {% endif %}
 
     {% if agent.websites %}
       {% for site in agent.websites.split(',') %}
-      <a class="btn full" target="_blank" href="{{ site|trim }}">🌐 {{ site|trim }}</a>
+        {% if site.strip() %}
+        <a class="btn full" target="_blank" href="{{ site.strip() }}">🌐 {{ site.strip() }}</a>
+        {% endif %}
       {% endfor %}
     {% endif %}
   </div>
+
+  <!-- INDIRIZZI -->
+  {% if agent.addresses %}
+  <div class="section">
+    <h3>Indirizzi</h3>
+    <ul class="addr-list">
+      {% for riga in agent.addresses.split('\n') %}
+        {% if riga.strip() %}
+        <li>{{ riga.strip() }}</li>
+        {% endif %}
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
 
   <!-- SOCIAL -->
   {% if agent.facebook or agent.instagram or agent.linkedin or agent.tiktok or agent.telegram %}
@@ -114,9 +132,10 @@
   <!-- SALVA CONTATTO -->
   <div class="section">
     <h3>Salva contatto</h3>
-    <a class="btn full green" href="{{ url_for('vcard', slug=agent.slug) }}">💾 Salva contatto (VCF)</a>
+    <a class="btn full green" href="{{ url_for('vcard', slug=agent.slug) }}">💾 Apri scheda contatto (VCF)</a>
   </div>
 
 </div>
 
 {% endblock %}
+
