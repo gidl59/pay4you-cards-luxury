@@ -57,8 +57,14 @@
 
     {% if agent.websites %}
       {% for site in agent.websites.split(',') %}
-        {% if site.strip() %}
-        <a class="btn full" target="_blank" href="{{ site.strip() }}">🌐 {{ site.strip() }}</a>
+        {% set raw = site.strip() %}
+        {% if raw %}
+          {# se non contiene :// aggiungo http:// #}
+          {% if '://' in raw %}
+            <a class="btn full" target="_blank" href="{{ raw }}">🌐 {{ raw }}</a>
+          {% else %}
+            <a class="btn full" target="_blank" href="http://{{ raw }}">🌐 {{ raw }}</a>
+          {% endif %}
         {% endif %}
       {% endfor %}
     {% endif %}
@@ -138,4 +144,3 @@
 </div>
 
 {% endblock %}
-
